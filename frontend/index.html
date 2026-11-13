@@ -1,0 +1,565 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Country Malnutrition Pattern Segmentation | Gates Foundation Nutrition Analytics</title>
+  <meta name="description" content="Unsupervised machine learning segmentation of global country malnutrition patterns using World Bank and Joint Malnutrition Estimates data.">
+
+  <!-- Google Fonts: Space Grotesk (Headings) & Inter (Body) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Space+Grotesk:wght@500;600;700;800&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+  <!-- Dynamic Aurora Background & Blobs -->
+  <div class="background-canvas">
+    <div class="subtle-grid"></div>
+    <div class="aurora-blob blob-1"></div>
+    <div class="aurora-blob blob-2"></div>
+    <div class="aurora-blob blob-3"></div>
+  </div>
+
+  <!-- Demo Data Banner (activates only if synthetic demo data is loaded) -->
+  <div id="demoBanner" class="demo-banner">
+    ⚠️ DEMO DATASET ACTIVE: The dashboard is currently displaying synthetic offline testing data.
+  </div>
+
+  <!-- Navigation Bar -->
+  <header class="top-nav">
+    <div class="nav-container">
+      <a href="#" class="brand-wrapper">
+        <div class="brand-icon">G</div>
+        <div>
+          <span class="brand-text">Malnutrition Pattern Analytics</span>
+          <span class="brand-tag">Gates Foundation Data</span>
+        </div>
+      </a>
+      <ul class="nav-links">
+        <li><a href="#problem">Problem</a></li>
+        <li><a href="#preprocessing">Data & Prep</a></li>
+        <li><a href="#model-selection">Model Selection</a></li>
+        <li><a href="#pca-explorer">PCA Explorer</a></li>
+        <li><a href="#hierarchical">Hierarchical</a></li>
+        <li><a href="#cluster-profiles">Profiles</a></li>
+        <li><a href="#limitations">Limitations</a></li>
+        <li><a href="#reproduce" class="nav-cta">Reproduce</a></li>
+      </ul>
+    </div>
+  </header>
+
+  <!-- Main Content Layout -->
+  <main class="main-wrapper">
+
+    <!-- HERO SECTION -->
+    <section class="hero-section reveal-on-scroll">
+      <div class="hero-pill-org">
+        <span class="pulse-dot"></span>
+        <span>Bill & Melinda Gates Foundation Nutrition Initiative • Unsupervised Learning (Units II, III & IV)</span>
+      </div>
+      <h1 class="hero-title">Country Malnutrition Pattern Segmentation</h1>
+      <p class="hero-subtitle">
+        Uncovering global malnutrition typologies through partition clustering (K-Means & K-Medians), 
+        hierarchical linkage comparison, and principal component factor projections using real World Bank / UNICEF / WHO Joint Malnutrition Estimates.
+      </p>
+
+      <!-- KPI Summary Cards Grid -->
+      <div class="kpi-grid">
+        <div class="glass-card kpi-card">
+          <div class="kpi-label">Analyzed Nations</div>
+          <div class="kpi-value" id="kpiCountries">--</div>
+          <div class="kpi-subtext" id="kpiCountriesSub">sovereign states</div>
+        </div>
+        <div class="glass-card kpi-card">
+          <div class="kpi-label">Health Indicators</div>
+          <div class="kpi-value" id="kpiIndicators">--</div>
+          <div class="kpi-subtext" id="kpiIndicatorsSub">dimensions retained</div>
+        </div>
+        <div class="glass-card kpi-card">
+          <div class="kpi-label">Optimal Clustering</div>
+          <div class="kpi-value" id="kpiK" style="color: var(--amber-accent);">--</div>
+          <div class="kpi-subtext" id="kpiKSub">composite rank #1</div>
+        </div>
+        <div class="glass-card kpi-card">
+          <div class="kpi-label">Silhouette Score</div>
+          <div class="kpi-value" id="kpiSilhouette">--</div>
+          <div class="kpi-subtext" id="kpiSilhouetteSub">common Euclidean ruler</div>
+        </div>
+        <div class="glass-card kpi-card">
+          <div class="kpi-label">Davies-Bouldin</div>
+          <div class="kpi-value" id="kpiDB">--</div>
+          <div class="kpi-subtext" id="kpiDBSub">lower is better</div>
+        </div>
+        <div class="glass-card kpi-card">
+          <div class="kpi-label">Bootstrap Stability</div>
+          <div class="kpi-value" id="kpiStability" style="color: var(--emerald-accent);">--</div>
+          <div class="kpi-subtext" id="kpiStabilitySub">20 subsamples ARI</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- PROBLEM FRAMING -->
+    <section id="problem" class="reveal-on-scroll" style="margin-top: 4rem;">
+      <div class="section-header">
+        <div class="section-tag">Gates Foundation Health Strategy</div>
+        <h2 class="section-title">The Global Malnutrition Landscape</h2>
+        <p class="section-desc">
+          Malnutrition is no longer a simple problem of caloric deficit. The global health paradigm faces 
+          interlocking nutritional transitions spanning acute starvation, micronutrient deficiencies, and rapid shifts toward obesity.
+        </p>
+      </div>
+
+      <div class="problem-grid">
+        <div class="glass-card problem-card undernutrition">
+          <div class="problem-card-icon">🥀</div>
+          <h3>Undernutrition & Wasting</h3>
+          <p>
+            Acute child wasting, chronic stunting, and severe anaemia primarily concentrated in low-income rural economies. 
+            Impedes cognitive development, elevates infant mortality, and requires therapeutic feeding and maternal support.
+          </p>
+        </div>
+
+        <div class="glass-card problem-card overnutrition">
+          <div class="problem-card-icon">⚡</div>
+          <h3>Overweight & Adult Obesity</h3>
+          <p>
+            Rapid urbanisation and ultra-processed food environments driving skyrocketing adult obesity and non-communicable 
+            diseases (cardiovascular diseases, diabetes) in upper-middle and high-income industrialised nations.
+          </p>
+        </div>
+
+        <div class="glass-card problem-card doubleburden">
+          <div class="problem-card-icon">⚖️</div>
+          <h3>The Double Burden</h3>
+          <p>
+            The alarming convergence where high child stunting and high adult/child overweight coexist within the same country, 
+            community, or household, demanding targeted policies rather than blanket caloric subsidisation.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- DATA & PREPROCESSING AUDIT -->
+    <section id="preprocessing" class="reveal-on-scroll" style="margin-top: 5rem;">
+      <div class="section-header">
+        <div class="section-tag">Rigorous Data Science Pipeline</div>
+        <h2 class="section-title">Data Ingestion & 7-Step Preprocessing</h2>
+        <p class="section-desc">
+          Every transformation step is documented, reproducible, and mathematically controlled. Real World Bank Open Data 
+          is audited for missingness, collinearity, and distributional skew.
+        </p>
+      </div>
+
+      <!-- Preprocessing Stepper Timeline -->
+      <div class="timeline-stepper" id="preprocessingAuditContainer">
+        <!-- Rendered by app.js -->
+      </div>
+
+      <!-- Indicator Table & Correlation Heatmap -->
+      <div class="comparison-layout" style="margin-top: 2rem;">
+        <div class="glass-card">
+          <h3 style="font-size: 1.25rem; margin-bottom: 0.8rem;">Retained Health Indicators</h3>
+          <div class="table-responsive" style="max-height: 480px;">
+            <table class="data-table" id="indicatorTable">
+              <thead>
+                <tr>
+                  <th>Indicator Name</th>
+                  <th>Key</th>
+                  <th>Category</th>
+                  <th>Coverage</th>
+                  <th>Clinical Definition</th>
+                </tr>
+              </thead>
+              <tbody>
+                <!-- Rendered by app.js -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="glass-card">
+          <h3 style="font-size: 1.25rem; margin-bottom: 0.35rem;">Correlation Matrix Before Clustering</h3>
+          <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1rem;">
+            Pairwise Pearson correlations ($r$). Pruning threshold $|r| > 0.92$ ensures multidimensional independence.
+          </p>
+          <div id="correlationHeatmapSvg" class="chart-container">
+            <!-- Rendered by app.js -->
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- MODEL SELECTION & VALIDATION -->
+    <section id="model-selection" class="reveal-on-scroll" style="margin-top: 5rem;">
+      <div class="section-header">
+        <div class="section-tag">Unit II: Partition Clustering Evaluation</div>
+        <h2 class="section-title">Model Selection & Hyperparameter Validation</h2>
+        <p class="section-desc">
+          Comparing Euclidean K-Means against Manhattan K-Medians across $K \in \{3, 4, 5, 6, 7, 8\}$. 
+          Evaluated via common Euclidean ruler, Kneedle elbow detection, and 20-round bootstrap stability.
+        </p>
+      </div>
+
+      <!-- Narrative on Selection of K -->
+      <div class="glass-card" style="margin-bottom: 2rem; border-left: 4px solid var(--amber-accent);">
+        <h4 style="font-size: 1.15rem; color: var(--amber-accent); margin-bottom: 0.5rem;">
+          Analytical Decision: Why K = 3 Was Selected by Composite Rank
+        </h4>
+        <p style="font-size: 0.94rem; color: #cbd5e1; line-height: 1.7; margin-bottom: 0.6rem;">
+          Our validation pipeline ranks configurations using a composite metric combining <strong>Silhouette Score</strong> (cohesion/separation), 
+          <strong>Davies-Bouldin Index</strong> (inter-cluster overlap), and <strong>Bootstrap Stability</strong> (ARI over 20 random 80% subsamples).
+          <strong>Euclidean K-Means with K = 3</strong> achieved the optimal composite rank (1.0), delivering the highest silhouette score (<strong>0.2726</strong>) 
+          and exceptional bootstrap reproducibility (<strong>ARI = 0.8324 ± 0.102</strong>), with well-balanced cluster sizes (minimum cluster: 37 countries).
+        </p>
+        <p style="font-size: 0.94rem; color: var(--text-muted); line-height: 1.7;">
+          <strong>Why not K = 4 or K = 5?</strong> At K = 4, the stability drops to 0.5025 ARI as countries in the transitional zone alternate between 
+          the obesity cluster and a nascent double-burden cluster. While K = 4 reveals valuable epidemiological nuance, K = 3 represents the 
+          most robust, reproducible macro-partition of global malnutrition. Both solutions can be explored interactively below.
+        </p>
+      </div>
+
+      <!-- Model Selection Charts Grid -->
+      <div class="comparison-layout">
+        <div class="glass-card">
+          <h3 style="font-size: 1.15rem; margin-bottom: 0.35rem;">Inertia / WCSS Elbow Curve</h3>
+          <p style="font-size: 0.82rem; color: var(--text-muted); margin-bottom: 0.75rem;">
+            Kneedle algorithm identifies elbow at K = 6 (Euclidean) and K = 5 (Manhattan).
+          </p>
+          <div id="elbowChartSvg" class="chart-container"></div>
+        </div>
+
+        <div class="glass-card">
+          <h3 style="font-size: 1.15rem; margin-bottom: 0.35rem;">Silhouette Score (Euclidean Ruler)</h3>
+          <p style="font-size: 0.82rem; color: var(--text-muted); margin-bottom: 0.75rem;">
+            Both Euclidean and Manhattan models benchmarked under a common Euclidean distance metric.
+          </p>
+          <div id="validationChartSvg" class="chart-container"></div>
+        </div>
+      </div>
+
+      <!-- Stability Chart -->
+      <div class="glass-card" style="margin-top: 1.5rem;">
+        <h3 style="font-size: 1.15rem; margin-bottom: 0.35rem;">Bootstrap Stability Across K (Mean ARI ± Std)</h3>
+        <p style="font-size: 0.82rem; color: var(--text-muted); margin-bottom: 0.75rem;">
+          Calculated by refitting each model over 20 random 80% subsamples without replacement. Scores > 0.70 represent robust cluster stability.
+        </p>
+        <div id="stabilityChartSvg" class="chart-container"></div>
+      </div>
+
+      <!-- Configurations Table -->
+      <div class="glass-card" style="margin-top: 1.5rem;">
+        <h3 style="font-size: 1.25rem; margin-bottom: 0.8rem;">Full Model Comparison Matrix</h3>
+        <div class="table-responsive">
+          <table class="data-table" id="modelComparisonTable">
+            <thead>
+              <tr>
+                <th>Configuration ID</th>
+                <th>Distance</th>
+                <th>K</th>
+                <th>Silhouette</th>
+                <th>Davies-Bouldin</th>
+                <th>Stability (ARI)</th>
+                <th>Min Cluster Size</th>
+                <th>Borderline (<0.05)</th>
+                <th>Composite Rank</th>
+              </tr>
+            </thead>
+            <tbody>
+              <!-- Rendered by app.js -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- INTERACTIVE 2D PCA EXPLORER -->
+    <section id="pca-explorer" class="reveal-on-scroll" style="margin-top: 5rem;">
+      <div class="section-header">
+        <div class="section-tag">Unit IV: PCA Visualisation & Factor Loadings</div>
+        <h2 class="section-title">Interactive 2D PCA Malnutrition Explorer</h2>
+        <p class="section-desc">
+          Dimensionality reduction to two principal components explaining <strong>65.8%</strong> of total variation. 
+          PC1 captures the fundamental undernutrition vs. overnutrition axis, while PC2 captures acute wasting versus chronic stunting and breastfeeding.
+        </p>
+      </div>
+
+      <!-- Controls & Filters Bar -->
+      <div class="controls-bar">
+        <div class="control-group">
+          <span class="control-label">Distance:</span>
+          <div class="btn-toggle-group">
+            <button class="btn-toggle active" data-dist="euclidean">Euclidean (KMeans)</button>
+            <button class="btn-toggle" data-dist="manhattan">Manhattan (KMedians)</button>
+          </div>
+        </div>
+
+        <div class="control-group">
+          <span class="control-label">Clusters (K):</span>
+          <div class="btn-toggle-group">
+            <button class="btn-toggle active" data-k="3">K=3</button>
+            <button class="btn-toggle" data-k="4">K=4</button>
+            <button class="btn-toggle" data-k="5">K=5</button>
+            <button class="btn-toggle" data-k="6">K=6</button>
+            <button class="btn-toggle" data-k="7">K=7</button>
+            <button class="btn-toggle" data-k="8">K=8</button>
+          </div>
+        </div>
+
+        <div class="control-group">
+          <button id="toggleLoadingsBtn" class="btn-toggle active" style="background: rgba(251, 191, 36, 0.15); border: 1px solid rgba(251, 191, 36, 0.4); color: var(--amber-accent);">
+            Toggle Loading Vectors
+          </button>
+        </div>
+
+        <div class="control-group">
+          <select id="pcaRegionSelect" class="search-input" style="width: 190px;">
+            <option value="all">All Regions</option>
+          </select>
+          <input type="text" id="pcaSearchInput" class="search-input" placeholder="Search country name or code...">
+        </div>
+      </div>
+
+      <!-- PCA Canvas Container -->
+      <div class="glass-card" style="padding: 1.25rem; position: relative;">
+        <!-- Cluster Legend -->
+        <div id="pcaClusterLegend" style="display: flex; flex-wrap: wrap; margin-bottom: 0.75rem; padding-left: 0.5rem;"></div>
+
+        <div id="pcaScatterSvg" class="chart-container">
+          <!-- Rendered by app.js -->
+        </div>
+
+        <!-- Floating Glass Tooltip -->
+        <div id="pcaTooltip" class="chart-tooltip"></div>
+      </div>
+    </section>
+
+    <!-- HIERARCHICAL CLUSTERING COMPARISON -->
+    <section id="hierarchical" class="reveal-on-scroll" style="margin-top: 5rem;">
+      <div class="section-header">
+        <div class="section-tag">Unit III: Hierarchical Comparison</div>
+        <h2 class="section-title">Hierarchical Dendrogram & Linkage Benchmark</h2>
+        <p class="section-desc">
+          Agglomerative hierarchical clustering evaluated across Ward, Complete, Average, and Single linkage 
+          under Euclidean and Manhattan metrics. Verifies structural validity of the partition boundaries.
+        </p>
+      </div>
+
+      <div class="glass-card" style="margin-bottom: 1.5rem;">
+        <h3 style="font-size: 1.2rem; margin-bottom: 0.35rem;">Ward's Hierarchical Dendrogram (Cut Height = 12.52)</h3>
+        <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1rem;">
+          Branches coloured by cluster assignment at $K = 3$. The clear vertical separation before merge height 12.52 
+          confirms strong natural separation between the undernutrition and overnutrition macro-clusters.
+        </p>
+        <div id="dendrogramSvg" class="chart-container">
+          <!-- Rendered by app.js -->
+        </div>
+      </div>
+
+      <div class="glass-card">
+        <h3 style="font-size: 1.25rem; margin-bottom: 0.8rem;">Hierarchical Linkage Comparison Matrix</h3>
+        <div class="table-responsive">
+          <table class="data-table" id="hierarchicalTable">
+            <thead>
+              <tr>
+                <th>Linkage Method</th>
+                <th>Criterion</th>
+                <th>Distance Metric</th>
+                <th>Cophenetic Correlation</th>
+                <th>Silhouette</th>
+                <th>Davies-Bouldin</th>
+                <th>ARI vs K-Means</th>
+                <th>Cut Height</th>
+              </tr>
+            </thead>
+            <tbody>
+              <!-- Rendered by app.js -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- CLUSTER PROFILES & INTERPRETATION -->
+    <section id="cluster-profiles" class="reveal-on-scroll" style="margin-top: 5rem;">
+      <div class="section-header">
+        <div class="section-tag">Actionable Epidemiological Insight</div>
+        <h2 class="section-title">Cluster Profiles & Rule-Based Typologies</h2>
+        <p class="section-desc">
+          Transparent, data-driven nomenclature based on standardized undernutrition ($Z_{under}$) and overnutrition ($Z_{over}$) indices. 
+          Identifies typical countries, regional distributions, and income mixes.
+        </p>
+      </div>
+
+      <!-- Cluster Profile Cards Grid -->
+      <div class="cluster-cards-grid" id="clusterProfilesGrid">
+        <!-- Rendered by app.js -->
+      </div>
+
+      <!-- Z-Score Profile Heatmap -->
+      <div class="glass-card" style="margin-top: 2rem;">
+        <h3 style="font-size: 1.2rem; margin-bottom: 0.35rem;">Standardized Health Deviation Heatmap (Z-Scores)</h3>
+        <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1rem;">
+          Red indicates elevated public health burden ($Z > 0$), Cyan indicates low burden ($Z < 0$).
+        </p>
+        <div id="profileHeatmapSvg" class="chart-container">
+          <!-- Rendered by app.js -->
+        </div>
+      </div>
+    </section>
+
+    <!-- STABILITY & BORDERLINE CASES -->
+    <section id="stability" class="reveal-on-scroll" style="margin-top: 5rem;">
+      <div class="section-header">
+        <div class="section-tag">Uncertainty & Sensitivity Analysis</div>
+        <h2 class="section-title">Borderline Nations & Nutritional Transition</h2>
+        <p class="section-desc">
+          15 countries exhibit low silhouette values (silhouette &lt; 0.05), indicating transitional status 
+          on the boundary between acute undernutrition and emerging nutritional transition.
+        </p>
+      </div>
+
+      <div class="glass-card">
+        <h3 style="font-size: 1.25rem; margin-bottom: 0.8rem;">Borderline Countries Audit (Silhouette &lt; 0.05)</h3>
+        <div class="table-responsive" style="max-height: 420px;">
+          <table class="data-table" id="borderlineTable">
+            <thead>
+              <tr>
+                <th>Country</th>
+                <th>Region</th>
+                <th>Income Group</th>
+                <th>Cluster Assignment</th>
+                <th>Silhouette Score</th>
+                <th>Child Stunting</th>
+                <th>Child Wasting</th>
+                <th>Adult Obesity</th>
+              </tr>
+            </thead>
+            <tbody>
+              <!-- Rendered by app.js -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- LIMITATIONS & RESPONSIBLE USE -->
+    <section id="limitations" class="reveal-on-scroll" style="margin-top: 5rem;">
+      <div class="section-header">
+        <div class="section-tag">Methodological Honesty & Ethics</div>
+        <h2 class="section-title">Limitations & Responsible Use Principles</h2>
+        <p class="section-desc">
+          Unsupervised clustering creates mathematical representations of complex health realities. 
+          Decision-makers must interpret these groupings within rigorous epidemiological and ethical boundaries.
+        </p>
+      </div>
+
+      <div class="ethics-grid">
+        <div class="glass-card ethics-item">
+          <div class="ethics-icon">📊</div>
+          <div class="ethics-body">
+            <h4>Survey Asynchrony & Reporting Gaps</h4>
+            <p>
+              World Bank Joint Malnutrition Estimates rely on household demographic surveys (DHS, MICS) conducted every 3–5 years. 
+              Latest available figures span 2018–2023. Fast-moving shocks (conflicts, food price spikes) are not reflected instantaneously.
+            </p>
+          </div>
+        </div>
+
+        <div class="glass-card ethics-item">
+          <div class="ethics-icon">🌐</div>
+          <div class="ethics-body">
+            <h4>National Averages Mask Inequality</h4>
+            <p>
+              National rates obscure acute subnational, rural-urban, and wealth-quintile inequalities. 
+              A country classified as "High Overweight" may harbor severe stunting pockets in marginalized indigenous communities.
+            </p>
+          </div>
+        </div>
+
+        <div class="glass-card ethics-item">
+          <div class="ethics-icon">🚫</div>
+          <div class="ethics-body">
+            <h4>No Ranking or Stigmatization</h4>
+            <p>
+              Clusters represent typologies, NOT rankings or moral scorecards. No cluster is "superior." 
+              High obesity carries immense metabolic morbidity, just as undernutrition carries mortality risks.
+            </p>
+          </div>
+        </div>
+
+        <div class="glass-card ethics-item">
+          <div class="ethics-icon">🛡️</div>
+          <div class="ethics-body">
+            <h4>Non-Circular Feature Engineering</h4>
+            <p>
+              Gross Domestic Product (GDP) and World Bank Income Group were deliberately excluded from clustering features. 
+              This prevents economic determinism and ensures groupings are dictated strictly by physiological health outcomes.
+            </p>
+          </div>
+        </div>
+
+        <div class="glass-card ethics-item">
+          <div class="ethics-icon">🤝</div>
+          <div class="ethics-body">
+            <h4>Decision Support, Not Automated Allocation</h4>
+            <p>
+              These clusters must guide holistic program design (e.g. integrating nutrition-sensitive agriculture with metabolic screening), 
+              never automate funding reductions or punitive aid conditionality.
+            </p>
+          </div>
+        </div>
+
+        <div class="glass-card ethics-item">
+          <div class="ethics-icon">🔄</div>
+          <div class="ethics-body">
+            <h4>Continuous Transition vs. Hard Cuts</h4>
+            <p>
+              K-Means imposes hard geometric boundaries. The 15 borderline nations identified in our audit demonstrate that 
+              nutritional transitions occur along a continuum rather than in discrete, siloed categories.
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- REPRODUCIBILITY & CLI -->
+    <section id="reproduce" class="reveal-on-scroll" style="margin-top: 5rem;">
+      <div class="section-header">
+        <div class="section-tag">Fully Automated Pipeline</div>
+        <h2 class="section-title">Reproducibility & Execution Commands</h2>
+        <p class="section-desc">
+          The entire project is reproducible with standard open-source tools. Everything runs locally with single commands.
+        </p>
+      </div>
+
+      <div class="glass-card">
+        <pre class="code-box" id="reproduceCodeBox"></pre>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Footer -->
+  <footer>
+    <div style="max-width: 1320px; margin: 0 auto; display: flex; flex-direction: column; align-items: center; gap: 0.75rem;">
+      <div style="font-family: var(--font-heading); font-weight: 700; color: var(--text-main); font-size: 1rem;">
+        Country Malnutrition Pattern Segmentation Using Health Indicators and Clustering
+      </div>
+      <div>
+        Bill & Melinda Gates Foundation Nutrition Analytics • Course Outcomes: CO2 (Partitioning), CO3 (Hierarchical), CO5 (Dimensionality Reduction)
+      </div>
+      <div style="color: var(--text-dim); font-size: 0.78rem;">
+        Data Sources: World Bank Open Data API, UNICEF/WHO/World Bank Joint Child Malnutrition Estimates (JME), WHO/NCD-RisC.
+      </div>
+    </div>
+  </footer>
+
+  <!-- Autogenerated Results Data -->
+  <script src="data/results.js"></script>
+  <!-- Main Application Logic -->
+  <script src="js/app.js"></script>
+</body>
+</html>
