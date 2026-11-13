@@ -45,6 +45,7 @@
         <li><a href="#pca-explorer">PCA Explorer</a></li>
         <li><a href="#hierarchical">Hierarchical</a></li>
         <li><a href="#cluster-profiles">Profiles</a></li>
+        <li><a href="#simulator" style="color: var(--cyan-accent); font-weight: 600;">Simulator</a></li>
         <li><a href="#limitations">Limitations</a></li>
         <li><a href="#reproduce" class="nav-cta">Reproduce</a></li>
       </ul>
@@ -315,6 +316,12 @@
         </div>
 
         <div class="control-group">
+          <button id="playProgressionBtn" class="btn-action" title="Cycle through K=3 to K=8 automatically">
+            <span id="playProgressionIcon">▶</span> <span id="playProgressionText">Play Progression (K=3 to 8)</span>
+          </button>
+        </div>
+
+        <div class="control-group">
           <select id="pcaRegionSelect" class="search-input" style="width: 190px;">
             <option value="all">All Regions</option>
           </select>
@@ -406,6 +413,78 @@
         </p>
         <div id="profileHeatmapSvg" class="chart-container">
           <!-- Rendered by app.js -->
+        </div>
+      </div>
+    </section>
+
+    <!-- LIVE COUNTRY NUTRITION PROFILE SIMULATOR -->
+    <section id="simulator" class="reveal-on-scroll" style="margin-top: 5rem;">
+      <div class="section-header">
+        <div class="section-tag" style="background: rgba(6, 182, 212, 0.15); color: var(--cyan-accent); border: 1px solid rgba(6, 182, 212, 0.3);">
+          Interactive What-If Simulation
+        </div>
+        <h2 class="section-title">Live Country Nutrition Profile Simulator</h2>
+        <p class="section-desc">
+          Test public health hypotheses in real time. Adjust national health indicators to simulate policy interventions, 
+          compute live Euclidean/Manhattan distances to cluster centroids, observe real-time cluster classification, 
+          and watch the simulated country project live onto the PCA factor space.
+        </p>
+      </div>
+
+      <!-- Quick Preset Buttons -->
+      <div class="sim-presets-bar">
+        <span style="font-size: 0.8rem; color: var(--text-muted); align-self: center; margin-right: 0.5rem;">Load Typology Preset:</span>
+        <button class="sim-preset-btn" data-preset="sub_saharan">🌍 High Undernutrition (Sub-Saharan)</button>
+        <button class="sim-preset-btn" data-preset="double_burden">⚖️ Double Burden (Transitional)</button>
+        <button class="sim-preset-btn" data-preset="high_obesity">⚡ High Overweight & Obesity</button>
+        <button class="sim-preset-btn" data-preset="low_burden">🥗 Lower Malnutrition Burden</button>
+        <button class="sim-preset-btn" data-preset="global_mean">🌐 Global Cohort Average</button>
+      </div>
+
+      <div class="simulator-layout">
+        <!-- Sliders Column -->
+        <div class="glass-card" style="padding: 1.5rem;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem; border-bottom: 1px solid var(--border-card); padding-bottom: 0.75rem;">
+            <div>
+              <h3 style="font-size: 1.15rem; margin-bottom: 0.2rem;">9 National Health Indicators</h3>
+              <p style="font-size: 0.82rem; color: var(--text-muted);">Values normalized live via exact training pipeline StandardScaler parameters</p>
+            </div>
+            <button id="simResetBtn" class="sim-preset-btn" style="padding: 0.25rem 0.65rem;">Reset Sliders</button>
+          </div>
+
+          <div class="simulator-controls-grid" id="simulatorSlidersContainer">
+            <!-- Rendered dynamically by app.js -->
+          </div>
+        </div>
+
+        <!-- Prediction Output Column -->
+        <div class="sim-prediction-card">
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <div style="font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-dim);">Live Inference Engine</div>
+            <div id="simActiveModelBadge" style="font-size: 0.75rem; color: var(--amber-accent); font-weight: 600;">KMeans (K=3)</div>
+          </div>
+
+          <div class="sim-cluster-output" id="simClusterOutputBox">
+            <!-- Rendered by app.js -->
+          </div>
+
+          <div>
+            <div style="font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-dim); margin-bottom: 0.5rem;">Distance to Cluster Centroids</div>
+            <div class="sim-distance-bars" id="simDistanceBarsContainer">
+              <!-- Rendered by app.js -->
+            </div>
+          </div>
+
+          <div style="border-top: 1px solid var(--border-card); padding-top: 0.75rem;">
+            <div style="font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-dim); margin-bottom: 0.5rem;">Closest Real Sovereign States</div>
+            <div id="simClosestCountriesList" style="display: flex; flex-direction: column; gap: 0.4rem;">
+              <!-- Rendered by app.js -->
+            </div>
+          </div>
+
+          <button id="simJumpToPcaBtn" class="btn-action" style="justify-content: center; padding: 0.65rem; margin-top: 0.5rem;">
+            📍 Focus Simulated Marker on PCA Map
+          </button>
         </div>
       </div>
     </section>
@@ -557,9 +636,21 @@
     </div>
   </footer>
 
+  <!-- Country Detail Drawer Backdrop -->
+  <div id="drawerBackdrop" class="drawer-backdrop"></div>
+
+  <!-- Country Detail Drawer -->
+  <aside id="countryDrawer" class="country-drawer" aria-label="Country Profile Inspector">
+    <button id="drawerCloseBtn" class="drawer-close-btn" aria-label="Close Inspector">&times;</button>
+    <div id="drawerContent">
+      <!-- Populated dynamically by app.js -->
+    </div>
+  </aside>
+
   <!-- Autogenerated Results Data -->
   <script src="data/results.js"></script>
   <!-- Main Application Logic -->
   <script src="js/app.js"></script>
 </body>
 </html>
+

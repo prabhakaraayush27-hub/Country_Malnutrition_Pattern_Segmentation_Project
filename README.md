@@ -236,3 +236,4 @@ The repository includes a ready-to-use `netlify.toml` configuring `frontend` as 
 
 ---
 *Developed for University Unsupervised Learning Coursework • Bill & Melinda Gates Foundation Nutrition Analytics Context.*
+

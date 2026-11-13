@@ -126,3 +126,4 @@ def generate_demo_dataset(n_countries=180, output_path=None):
 
 if __name__ == "__main__":
     generate_demo_dataset()
+

@@ -282,3 +282,4 @@ The pipeline computes per-country silhouette scores $s(i)$. Exactly **15 countri
 ## 12. Conclusion & Verification
 
 This project successfully implements and validates an end-to-end unsupervised learning solution addressing Course Outcomes CO2, CO3, and CO5. By integrating real World Bank Open Data, auditing preprocessing transformations, rigorously comparing partition and hierarchical algorithms under a common Euclidean ruler, and providing an interactive, zero-dependency web dashboard, the analysis demonstrates how machine learning can extract actionable public health insights to support global nutrition initiatives.
+

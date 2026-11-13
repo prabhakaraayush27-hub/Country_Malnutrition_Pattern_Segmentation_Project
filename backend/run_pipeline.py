@@ -718,6 +718,14 @@ def run_pipeline(data_path=None):
             "loadings": {col: [float(loadings_df.loc[col, "PC1_Loading"]), float(loadings_df.loc[col, "PC2_Loading"])] for col in features}
         },
         "cluster_profiles": cluster_profiles,
+        "scaler": {
+            "mean": {feat: round(float(scaler.mean_[i]), 4) for i, feat in enumerate(features)},
+            "scale": {feat: round(float(scaler.scale_[i]), 4) for i, feat in enumerate(features)}
+        },
+        "cluster_centers": {
+            cfg_id: [[round(float(val), 4) for val in center] for center in model.cluster_centers_]
+            for cfg_id, model in fitted_models.items()
+        },
         "countries": country_export
     }
 

@@ -429,3 +429,4 @@ def run_hierarchical_comparison(X, target_k, reference_labels):
         
     df_hierarchical = pd.DataFrame(summary)
     return df_hierarchical, linkage_matrices, dendrogram_data
+

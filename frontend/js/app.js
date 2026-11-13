@@ -19,13 +19,92 @@
     '#84cc16'  // Cluster 7: Lime
   ];
 
+  // Indicator Slider Configurations for Live Simulator
+  const INDICATOR_CONFIGS = [
+    { key: 'stunting', label: 'Child Stunting', min: 0, max: 60, step: 0.5, unit: '%', category: 'undernutrition' },
+    { key: 'wasting', label: 'Child Wasting', min: 0, max: 25, step: 0.2, unit: '%', category: 'undernutrition' },
+    { key: 'underweight', label: 'Child Underweight', min: 0, max: 40, step: 0.5, unit: '%', category: 'undernutrition' },
+    { key: 'undernourishment', label: 'Undernourishment', min: 0, max: 55, step: 0.5, unit: '%', category: 'undernutrition' },
+    { key: 'anaemia_children', label: 'Child Anaemia', min: 0, max: 85, step: 0.5, unit: '%', category: 'undernutrition' },
+    { key: 'anaemia_women', label: 'Women Anaemia', min: 0, max: 70, step: 0.5, unit: '%', category: 'undernutrition' },
+    { key: 'exclusive_breastfeeding', label: 'Exclusive Breastfeeding', min: 0, max: 90, step: 0.5, unit: '%', category: 'protective' },
+    { key: 'child_overweight', label: 'Child Overweight', min: 0, max: 30, step: 0.2, unit: '%', category: 'overnutrition' },
+    { key: 'adult_obesity', label: 'Adult Obesity', min: 0, max: 60, step: 0.5, unit: '%', category: 'overnutrition' }
+  ];
+
+  // Archetype Presets for What-If Simulation
+  const TYPOLOGY_PRESETS = {
+    sub_saharan: {
+      name: 'High Undernutrition (Sub-Saharan)',
+      values: {
+        stunting: 38.5,
+        wasting: 8.8,
+        underweight: 22.0,
+        undernourishment: 24.5,
+        anaemia_children: 68.0,
+        anaemia_women: 46.0,
+        exclusive_breastfeeding: 52.0,
+        child_overweight: 3.2,
+        adult_obesity: 6.5
+      }
+    },
+    double_burden: {
+      name: 'Double Burden (Transitional)',
+      values: {
+        stunting: 31.5,
+        wasting: 3.8,
+        underweight: 12.5,
+        undernourishment: 11.2,
+        anaemia_children: 38.0,
+        anaemia_women: 28.5,
+        exclusive_breastfeeding: 35.0,
+        child_overweight: 9.8,
+        adult_obesity: 26.5
+      }
+    },
+    high_obesity: {
+      name: 'High Overweight & Obesity',
+      values: {
+        stunting: 4.8,
+        wasting: 1.2,
+        underweight: 2.1,
+        undernourishment: 3.2,
+        anaemia_children: 12.5,
+        anaemia_women: 15.0,
+        exclusive_breastfeeding: 24.0,
+        child_overweight: 12.8,
+        adult_obesity: 34.5
+      }
+    },
+    low_burden: {
+      name: 'Lower Malnutrition Burden',
+      values: {
+        stunting: 5.5,
+        wasting: 1.8,
+        underweight: 2.2,
+        undernourishment: 3.8,
+        anaemia_children: 14.0,
+        anaemia_women: 16.0,
+        exclusive_breastfeeding: 62.0,
+        child_overweight: 4.8,
+        adult_obesity: 16.5
+      }
+    }
+  };
+
   let state = {
     results: null,
     activeDistance: 'euclidean',
     activeK: 3,
     showLoadings: true,
     searchTerm: '',
-    selectedRegion: 'all'
+    selectedRegion: 'all',
+    simulatedValues: {},
+    simulatedCoords: { x: 0, y: 0 },
+    simulatedCluster: 0,
+    progressionTimer: null,
+    isPlayingProgression: false,
+    activeCountryIso: null
   };
 
   document.addEventListener('DOMContentLoaded', initApp);
@@ -40,6 +119,12 @@
     state.results = window.RESULTS;
     state.activeDistance = state.results.metadata.selected_distance || 'euclidean';
     state.activeK = state.results.metadata.selected_k || 3;
+
+    // Initialize simulated values with dataset mean
+    const mean = state.results.scaler ? state.results.scaler.mean : {};
+    INDICATOR_CONFIGS.forEach(ind => {
+      state.simulatedValues[ind.key] = mean[ind.key] !== undefined ? Math.round(mean[ind.key] * 10) / 10 : 15;
+    });
 
     // Check demo data banner
     if (state.results.metadata.is_demo) {
@@ -56,10 +141,14 @@
     renderPCAExplorer();
     renderHierarchicalSection();
     renderClusterProfiles();
+    renderSimulator();
     renderBorderlineTable();
     renderReproduceSection();
 
     setupEventListeners();
+    setupDrawer();
+    setupPlayProgression();
+    setupTableModelSwitching();
     setupScrollReveal();
   }
 
@@ -74,8 +163,27 @@
   }
 
   // ============================================================================
-  // 1. KPI Cards
+  // 1. KPI Cards with Counter Animation
   // ============================================================================
+  function animateValue(id, start, end, duration, decimals = 0, prefix = '', suffix = '') {
+    const obj = document.getElementById(id);
+    if (!obj) return;
+    let startTimestamp = null;
+    const step = (timestamp) => {
+      if (!startTimestamp) startTimestamp = timestamp;
+      const progress = Math.min((timestamp - startTimestamp) / duration, 1);
+      const ease = 1 - Math.pow(1 - progress, 3); // cubic ease-out
+      const current = start + ease * (end - start);
+      obj.textContent = prefix + current.toFixed(decimals) + suffix;
+      if (progress < 1) {
+        window.requestAnimationFrame(step);
+      } else {
+        obj.textContent = prefix + end.toFixed(decimals) + suffix;
+      }
+    };
+    window.requestAnimationFrame(step);
+  }
+
   function renderKPIs() {
     const m = state.results.metadata;
     const setVal = (id, val) => {
@@ -83,22 +191,27 @@
       if (el) el.textContent = val;
     };
 
-    setVal('kpiCountries', m.total_countries_analyzed);
+    animateValue('kpiCountries', 0, m.total_countries_analyzed, 1200, 0);
     setVal('kpiCountriesSub', `of ${m.total_countries_raw} sovereign states`);
-    setVal('kpiIndicators', m.total_indicators_used);
+
+    animateValue('kpiIndicators', 0, m.total_indicators_used, 800, 0);
     setVal('kpiIndicatorsSub', 'retained (low missingness)');
+
     setVal('kpiK', `K = ${m.selected_k}`);
     setVal('kpiKSub', `${m.selected_distance.toUpperCase()} distance`);
-    setVal('kpiSilhouette', m.selected_silhouette.toFixed(4));
+
+    animateValue('kpiSilhouette', 0, m.selected_silhouette, 1400, 4);
     setVal('kpiSilhouetteSub', 'Euclidean common ruler');
-    setVal('kpiDB', m.selected_davies_bouldin.toFixed(4));
+
+    animateValue('kpiDB', 0, m.selected_davies_bouldin, 1400, 4);
     setVal('kpiDBSub', 'Separation ratio (lower=better)');
-    setVal('kpiStability', `${m.selected_stability_ari.toFixed(4)}`);
+
+    animateValue('kpiStability', 0, m.selected_stability_ari, 1400, 4);
     setVal('kpiStabilitySub', `±${m.selected_stability_std.toFixed(3)} ARI (20 boots)`);
   }
 
   // ============================================================================
-  // 2. Preprocessing Audit
+  // 2. Preprocessing Audit Stepper
   // ============================================================================
   function renderPreprocessingAudit() {
     const audit = state.results.preprocessing_audit;
@@ -151,13 +264,15 @@
     ];
 
     container.innerHTML = steps.map(s => `
-      <div class="step-card">
-        <div class="step-number">${s.num}</div>
+      <div class="glass-card step-card">
+        <div class="step-num">${s.num}</div>
         <div class="step-content">
-          <h4>${s.title}</h4>
-          <p>${s.desc}</p>
+          <div style="display: flex; justify-content: space-between; align-items: baseline; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 0.35rem;">
+            <h3 style="font-size: 1.1rem; color: #ffffff;">${s.title}</h3>
+            <span class="pill-status pill-info">${s.badge}</span>
+          </div>
+          <p style="font-size: 0.88rem; color: var(--text-muted); line-height: 1.6;">${s.desc}</p>
         </div>
-        <div class="step-badge">${s.badge}</div>
       </div>
     `).join('');
   }
@@ -171,12 +286,13 @@
 
     const meta = state.results.indicator_metadata;
     const audit = state.results.preprocessing_audit;
+    const feats = state.results.features;
 
-    tbody.innerHTML = state.results.features.map(f => {
+    tbody.innerHTML = feats.map(f => {
       const m = meta[f] || {};
-      const missInfo = audit.indicator_missingness[f] || { missing_pct: 0 };
-      const coverage = (100 - missInfo.missing_pct).toFixed(1);
-      const catClass = m.type === 'undernutrition' ? 'pill-warning' : (m.type === 'overnutrition' ? 'pill-success' : 'pill-status');
+      const missInfo = audit.indicator_missingness && audit.indicator_missingness[f];
+      const coverage = missInfo ? (100 - missInfo.missing_pct).toFixed(1) : 'N/A';
+      const catClass = m.type === 'undernutrition' ? 'pill-warning' : (m.type === 'overnutrition' ? 'pill-danger' : 'pill-success');
       
       return `
         <tr>
@@ -221,7 +337,6 @@
         const f2 = feats[j];
         const val = corr[f1] ? corr[f1][f2] : 0;
         
-        // Color scale: -1 (cyan #06b6d4) to 0 (slate #1e293b) to +1 (rose #f43f5e)
         let fillColor = '#1e293b';
         if (val > 0) {
           const t = Math.min(1, val);
@@ -278,7 +393,6 @@
 
     const data = state.results.model_comparison;
     const eucData = data.filter(d => d.distance === 'euclidean').sort((a, b) => a.k - b.k);
-    const manData = data.filter(d => d.distance === 'manhattan').sort((a, b) => a.k - b.k);
 
     const width = 560;
     const height = 300;
@@ -440,20 +554,25 @@
   }
 
   // ============================================================================
-  // 6. Full Model Configurations Table
+  // 6. Full Model Configurations Table with Click-to-Activate
   // ============================================================================
   function renderModelTable() {
     const tbody = document.querySelector('#modelComparisonTable tbody');
     if (!tbody) return;
 
     const data = [...state.results.model_comparison].sort((a, b) => (a.composite_rank || 99) - (b.composite_rank || 99));
-    const selectedId = state.results.metadata.selected_config_id;
+    const activeCfg = `${state.activeDistance}_k${state.activeK}`;
 
     tbody.innerHTML = data.map(d => {
-      const isSelected = d.config_id === selectedId;
+      const isSelected = d.config_id === activeCfg;
+      const isOptimal = d.config_id === state.results.metadata.selected_config_id;
       return `
-        <tr class="${isSelected ? 'selected-row' : ''}">
-          <td><strong>${d.config_id}</strong> ${isSelected ? '<span class="pill-status pill-success" style="margin-left: 6px;">SELECTED</span>' : ''}</td>
+        <tr class="${isSelected ? 'selected-row' : ''}" data-config="${d.config_id}" data-dist="${d.distance}" data-k="${d.k}" style="cursor: pointer;" title="Click to activate ${d.config_id} across dashboard">
+          <td>
+            <strong>${d.config_id}</strong>
+            ${isOptimal ? '<span class="pill-status pill-success" style="margin-left: 6px;">OPTIMAL</span>' : ''}
+            ${isSelected && !isOptimal ? '<span class="pill-status pill-info" style="margin-left: 6px;">ACTIVE</span>' : ''}
+          </td>
           <td>${d.distance.toUpperCase()}</td>
           <td><strong>${d.k}</strong></td>
           <td>${d.silhouette_euclidean.toFixed(4)}</td>
@@ -467,8 +586,47 @@
     }).join('');
   }
 
+  function setupTableModelSwitching() {
+    const table = document.getElementById('modelComparisonTable');
+    if (!table) return;
+
+    table.addEventListener('click', e => {
+      const row = e.target.closest('tr[data-config]');
+      if (!row) return;
+
+      const dist = row.getAttribute('data-dist');
+      const k = parseInt(row.getAttribute('data-k'), 10);
+
+      switchActiveModel(dist, k);
+    });
+  }
+
+  function switchActiveModel(dist, k) {
+    state.activeDistance = dist;
+    state.activeK = k;
+
+    // Update Distance Buttons
+    document.querySelectorAll('[data-dist]').forEach(btn => {
+      btn.classList.toggle('active', btn.getAttribute('data-dist') === dist);
+    });
+
+    // Update K Buttons
+    document.querySelectorAll('[data-k]').forEach(btn => {
+      btn.classList.toggle('active', parseInt(btn.getAttribute('data-k'), 10) === k);
+    });
+
+    // Update Model Table Selection Highlights
+    renderModelTable();
+
+    // Re-render PCA Explorer
+    renderPCAExplorer();
+
+    // Update Simulator outputs
+    updateSimulator();
+  }
+
   // ============================================================================
-  // 7. Interactive 2D PCA Explorer
+  // 7. Interactive 2D PCA Explorer (with Live Pulsing Simulated Marker)
   // ============================================================================
   function renderPCAExplorer() {
     const container = document.getElementById('pcaScatterSvg');
@@ -494,10 +652,10 @@
 
     const xVals = countries.map(c => c.pca_x);
     const yVals = countries.map(c => c.pca_y);
-    const xMin = Math.min(...xVals) - 0.5;
-    const xMax = Math.max(...xVals) + 0.5;
-    const yMin = Math.min(...yVals) - 0.5;
-    const yMax = Math.max(...yVals) + 0.5;
+    const xMin = Math.min(...xVals) - 0.6;
+    const xMax = Math.max(...xVals) + 0.6;
+    const yMin = Math.min(...yVals) - 0.6;
+    const yMax = Math.max(...yVals) + 0.6;
 
     const xScale = x => margin.left + ((x - xMin) / (xMax - xMin)) * (width - margin.left - margin.right);
     const yScale = y => margin.top + (1 - (y - yMin) / (yMax - yMin)) * (height - margin.top - margin.bottom);
@@ -543,6 +701,25 @@
       />`;
     });
 
+    // Render LIVE SIMULATED NATION Marker (pulsing halo + star marker)
+    if (state.simulatedCoords) {
+      const simX = xScale(state.simulatedCoords.x);
+      const simY = yScale(state.simulatedCoords.y);
+      const simClColor = PALETTE[state.simulatedCluster % PALETTE.length];
+
+      svg += `
+        <g id="simulatedPcaGroup" style="cursor: pointer;">
+          <!-- Pulsing Outer Ring -->
+          <circle cx="${simX}" cy="${simY}" r="16" fill="${simClColor}" opacity="0.3" class="sim-point"></circle>
+          <circle cx="${simX}" cy="${simY}" r="9" fill="${simClColor}" stroke="#ffffff" stroke-width="2.5"></circle>
+          <circle cx="${simX}" cy="${simY}" r="3" fill="#ffffff"></circle>
+          <!-- Callout Label -->
+          <rect x="${simX + 12}" y="${simY - 14}" width="130" height="22" rx="4" fill="rgba(15, 23, 42, 0.9)" stroke="${simClColor}" stroke-width="1.2"></rect>
+          <text x="${simX + 18}" y="${simY + 1}" fill="#ffffff" font-size="10" font-weight="700">★ SIMULATED NATION</text>
+        </g>
+      `;
+    }
+
     // Axis Labels
     svg += `<text x="${width / 2}" y="${height - 12}" fill="#94a3b8" font-size="12" font-weight="600" text-anchor="middle">Principal Component 1 (${(pcaMeta.variance_explained[0]*100).toFixed(1)}% Variance Explained - Undernutrition Axis)</text>`;
     svg += `<text x="${margin.left - 12}" y="${margin.top - 14}" fill="#94a3b8" font-size="11" font-weight="600" text-anchor="start">PC2 (${(pcaMeta.variance_explained[1]*100).toFixed(1)}% Variance)</text>`;
@@ -583,6 +760,7 @@
             <div class="tooltip-row"><span>Adult Obesity:</span> <span class="tooltip-val">${c.indicators.adult_obesity || 'N/A'}%</span></div>
             <div class="tooltip-row"><span>GDP per cap:</span> <span class="tooltip-val">${c.gdp_per_capita ? '$' + Math.round(c.gdp_per_capita).toLocaleString() : 'N/A'}</span></div>
           </div>
+          <div style="margin-top: 6px; font-size: 0.72rem; color: var(--amber-accent); text-align: center;">Click dot to inspect full profile &rarr;</div>
         `;
 
         const rect = dot.getBoundingClientRect();
@@ -600,7 +778,21 @@
         const c = countryMap.get(iso);
         dot.setAttribute('r', c && c.is_borderline ? '6' : '5');
       });
+
+      dot.addEventListener('click', () => {
+        const iso = dot.getAttribute('data-iso');
+        openCountryDrawer(iso);
+      });
     });
+
+    // Simulated marker click
+    const simGroup = container.querySelector('#simulatedPcaGroup');
+    if (simGroup) {
+      simGroup.addEventListener('click', () => {
+        const simSec = document.getElementById('simulator');
+        if (simSec) simSec.scrollIntoView({ behavior: 'smooth' });
+      });
+    }
   }
 
   function renderPCALegend(activeCfg) {
@@ -611,17 +803,518 @@
     for (let cl = 0; cl < state.activeK; cl++) {
       const color = PALETTE[cl % PALETTE.length];
       itemsHtml += `
-        <div style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.82rem; margin-right: 1.25rem;">
+        <div style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.82rem; margin-right: 1.25rem; margin-bottom: 0.35rem;">
           <span style="width: 10px; height: 10px; border-radius: 50%; background: ${color}; display: inline-block;"></span>
           <span style="color: #e2e8f0; font-weight: 600;">Cluster ${cl}</span>
         </div>
       `;
     }
+    // Add simulated marker badge to legend
+    itemsHtml += `
+      <div style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.82rem; margin-bottom: 0.35rem;">
+        <span style="width: 12px; height: 12px; border-radius: 50%; background: var(--amber-accent); border: 2px solid #ffffff; display: inline-block;"></span>
+        <span style="color: var(--amber-accent); font-weight: 700;">★ Simulated Nation</span>
+      </div>
+    `;
     legendContainer.innerHTML = itemsHtml;
   }
 
   // ============================================================================
-  // 8. Hierarchical Clustering Section & Dendrogram
+  // 8. "Play Progression" Animation Engine (K = 3 to 8)
+  // ============================================================================
+  function setupPlayProgression() {
+    const btn = document.getElementById('playProgressionBtn');
+    const icon = document.getElementById('playProgressionIcon');
+    const text = document.getElementById('playProgressionText');
+    if (!btn) return;
+
+    btn.addEventListener('click', () => {
+      if (state.isPlayingProgression) {
+        // Stop playback
+        stopPlayProgression();
+      } else {
+        // Start playback
+        startPlayProgression();
+      }
+    });
+
+    function startPlayProgression() {
+      state.isPlayingProgression = true;
+      btn.classList.add('active');
+      if (icon) icon.textContent = '⏸';
+      if (text) text.textContent = 'Pause Progression';
+
+      state.progressionTimer = setInterval(() => {
+        let nextK = state.activeK + 1;
+        if (nextK > 8) nextK = 3;
+        switchActiveModel(state.activeDistance, nextK);
+      }, 1600);
+    }
+
+    function stopPlayProgression() {
+      state.isPlayingProgression = false;
+      clearInterval(state.progressionTimer);
+      state.progressionTimer = null;
+      btn.classList.remove('active');
+      if (icon) icon.textContent = '▶';
+      if (text) text.textContent = 'Play Progression (K=3 to 8)';
+    }
+  }
+
+  // ============================================================================
+  // 9. LIVE COUNTRY NUTRITION PROFILE SIMULATOR
+  // ============================================================================
+  function renderSimulator() {
+    const container = document.getElementById('simulatorSlidersContainer');
+    if (!container) return;
+
+    container.innerHTML = INDICATOR_CONFIGS.map(cfg => {
+      const curVal = state.simulatedValues[cfg.key] !== undefined ? state.simulatedValues[cfg.key] : 15;
+      return `
+        <div class="sim-slider-group">
+          <div class="sim-slider-header">
+            <span class="sim-slider-name">${cfg.label}</span>
+            <span class="sim-slider-val" id="val_${cfg.key}">${curVal.toFixed(1)}${cfg.unit}</span>
+          </div>
+          <input 
+            type="range" 
+            class="sim-slider" 
+            id="slider_${cfg.key}" 
+            data-key="${cfg.key}" 
+            data-unit="${cfg.unit}" 
+            min="${cfg.min}" 
+            max="${cfg.max}" 
+            step="${cfg.step}" 
+            value="${curVal}"
+          />
+        </div>
+      `;
+    }).join('');
+
+    // Attach slider change listeners
+    container.querySelectorAll('.sim-slider').forEach(slider => {
+      slider.addEventListener('input', e => {
+        const key = slider.getAttribute('data-key');
+        const unit = slider.getAttribute('data-unit');
+        const val = parseFloat(slider.value);
+        state.simulatedValues[key] = val;
+
+        const valLabel = document.getElementById(`val_${key}`);
+        if (valLabel) valLabel.textContent = `${val.toFixed(1)}${unit}`;
+
+        updateSimulator();
+      });
+    });
+
+    // Preset buttons
+    document.querySelectorAll('[data-preset]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const pKey = btn.getAttribute('data-preset');
+        loadTypologyPreset(pKey);
+      });
+    });
+
+    // Reset button
+    const resetBtn = document.getElementById('simResetBtn');
+    if (resetBtn) {
+      resetBtn.addEventListener('click', () => {
+        loadTypologyPreset('global_mean');
+      });
+    }
+
+    // Jump to PCA button
+    const jumpBtn = document.getElementById('simJumpToPcaBtn');
+    if (jumpBtn) {
+      jumpBtn.addEventListener('click', () => {
+        const pcaSec = document.getElementById('pca-explorer');
+        if (pcaSec) {
+          pcaSec.scrollIntoView({ behavior: 'smooth' });
+          // Highlight simulated marker
+          setTimeout(() => {
+            const marker = document.querySelector('#simulatedPcaGroup');
+            if (marker) {
+              marker.style.transition = 'transform 0.4s ease';
+              marker.style.transform = 'scale(1.4)';
+              setTimeout(() => { marker.style.transform = 'scale(1)'; }, 500);
+            }
+          }, 600);
+        }
+      });
+    }
+
+    // Run initial computation
+    updateSimulator();
+  }
+
+  function loadTypologyPreset(presetKey) {
+    let vals = {};
+    if (presetKey === 'global_mean') {
+      const mean = state.results.scaler ? state.results.scaler.mean : {};
+      INDICATOR_CONFIGS.forEach(cfg => {
+        vals[cfg.key] = mean[cfg.key] !== undefined ? Math.round(mean[cfg.key] * 10) / 10 : 15;
+      });
+    } else if (TYPOLOGY_PRESETS[presetKey]) {
+      vals = TYPOLOGY_PRESETS[presetKey].values;
+    }
+
+    // Update state and UI sliders
+    for (const [k, v] of Object.entries(vals)) {
+      state.simulatedValues[k] = v;
+      const slider = document.getElementById(`slider_${k}`);
+      const valLabel = document.getElementById(`val_${k}`);
+      if (slider) slider.value = v;
+      if (valLabel) {
+        const cfg = INDICATOR_CONFIGS.find(c => c.key === k);
+        valLabel.textContent = `${v.toFixed(1)}${cfg ? cfg.unit : '%'}`;
+      }
+    }
+
+    updateSimulator();
+  }
+
+  function updateSimulator() {
+    if (!state.results || !state.results.scaler || !state.results.cluster_centers) return;
+
+    const feats = state.results.features;
+    const mean = state.results.scaler.mean;
+    const scale = state.results.scaler.scale;
+    const activeCfg = `${state.activeDistance}_k${state.activeK}`;
+    const centers = state.results.cluster_centers[activeCfg];
+
+    if (!centers || centers.length === 0) return;
+
+    // 1. Compute Standardized Z-Scores
+    const zVec = feats.map(f => {
+      const raw = state.simulatedValues[f] !== undefined ? state.simulatedValues[f] : mean[f];
+      return (raw - mean[f]) / scale[f];
+    });
+
+    // 2. Compute Distances to All Cluster Centroids in Active Model
+    const isManhattan = state.activeDistance === 'manhattan';
+    const distances = centers.map((cen, cIdx) => {
+      let d = 0;
+      for (let i = 0; i < feats.length; i++) {
+        const diff = Math.abs(zVec[i] - cen[i]);
+        d += isManhattan ? diff : diff * diff;
+      }
+      return {
+        cluster_id: cIdx,
+        distance: isManhattan ? d : Math.sqrt(d)
+      };
+    });
+
+    // Find closest cluster
+    distances.sort((a, b) => a.distance - b.distance);
+    const closestCluster = distances[0].cluster_id;
+    state.simulatedCluster = closestCluster;
+
+    // 3. Project to 2D PCA Space
+    const pcaLoadings = state.results.pca.loadings;
+    let px = 0, py = 0;
+    for (let i = 0; i < feats.length; i++) {
+      const f = feats[i];
+      if (pcaLoadings[f]) {
+        px += zVec[i] * pcaLoadings[f][0];
+        py += zVec[i] * pcaLoadings[f][1];
+      }
+    }
+    state.simulatedCoords = { x: px, y: py };
+
+    // 4. Update UI Outputs
+    // Active Model Badge
+    const modelBadge = document.getElementById('simActiveModelBadge');
+    if (modelBadge) {
+      modelBadge.textContent = `${state.activeDistance.toUpperCase()} (K = ${state.activeK})`;
+    }
+
+    // Cluster Prediction Box
+    const clusterOut = document.getElementById('simClusterOutputBox');
+    if (clusterOut) {
+      const color = PALETTE[closestCluster % PALETTE.length];
+      const clName = getClusterDisplayName(closestCluster, state.activeDistance, state.activeK);
+
+      clusterOut.innerHTML = `
+        <div style="display: flex; align-items: center; gap: 0.75rem;">
+          <span style="width: 14px; height: 14px; border-radius: 50%; background: ${color}; box-shadow: 0 0 10px ${color};"></span>
+          <div>
+            <div style="font-size: 0.72rem; color: var(--text-dim); text-transform: uppercase;">Predicted Typology</div>
+            <div style="font-size: 1.1rem; font-weight: 700; color: #ffffff;">${clName}</div>
+          </div>
+        </div>
+        <span class="pill-status" style="background: ${color}22; color: ${color}; border: 1px solid ${color}44; font-size: 0.85rem; font-weight: 700;">
+          Cluster ${closestCluster}
+        </span>
+      `;
+    }
+
+    // Distance Bars
+    const distContainer = document.getElementById('simDistanceBarsContainer');
+    if (distContainer) {
+      const maxDist = Math.max(...distances.map(d => d.distance), 1);
+      distContainer.innerHTML = distances.map(d => {
+        const color = PALETTE[d.cluster_id % PALETTE.length];
+        const clName = getClusterDisplayName(d.cluster_id, state.activeDistance, state.activeK);
+        const pct = Math.min(100, Math.max(12, (1 - d.distance / (maxDist * 1.2)) * 100));
+        const isMin = d.cluster_id === closestCluster;
+
+        return `
+          <div class="sim-dist-item">
+            <div class="sim-dist-meta">
+              <span style="color: ${isMin ? '#ffffff' : 'var(--text-muted)'}; font-weight: ${isMin ? '700' : '500'};">
+                ${isMin ? '★ ' : ''}C${d.cluster_id}: ${clName.slice(0, 24)}
+              </span>
+              <span style="color: ${color}; font-weight: 700;">d = ${d.distance.toFixed(2)}</span>
+            </div>
+            <div class="bar-track">
+              <div class="bar-fill" style="width: ${pct}%; background: ${color};"></div>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    // 5. Compute Closest Real Countries in 9D Space
+    computeClosestRealCountries(zVec);
+
+    // 6. Update PCA Explorer Scatter Map with Live Simulated Point
+    renderPCAExplorer();
+  }
+
+  function getClusterDisplayName(clId, distance, k) {
+    if (k === 3 && distance === 'euclidean' && state.results.cluster_profiles) {
+      const p = state.results.cluster_profiles.find(cp => cp.cluster_id === clId);
+      if (p) return p.name;
+    }
+    // Dynamic fallback name based on cluster profile means if available
+    return `Cluster ${clId} Partition (${distance.toUpperCase()})`;
+  }
+
+  function computeClosestRealCountries(zVec) {
+    const listContainer = document.getElementById('simClosestCountriesList');
+    if (!listContainer || !state.results.countries) return;
+
+    const feats = state.results.features;
+    const mean = state.results.scaler.mean;
+    const scale = state.results.scaler.scale;
+
+    const countryDistances = state.results.countries.map(c => {
+      let d = 0;
+      for (let i = 0; i < feats.length; i++) {
+        const f = feats[i];
+        const cz = (c.indicators[f] - mean[f]) / scale[f];
+        const diff = zVec[i] - cz;
+        d += diff * diff;
+      }
+      return {
+        country: c,
+        dist: Math.sqrt(d)
+      };
+    });
+
+    countryDistances.sort((a, b) => a.dist - b.dist);
+    const top3 = countryDistances.slice(0, 3);
+
+    listContainer.innerHTML = top3.map((item, idx) => {
+      const c = item.country;
+      const clColor = PALETTE[c.cluster % PALETTE.length];
+      return `
+        <div style="display: flex; justify-content: space-between; align-items: center; background: rgba(255,255,255,0.03); padding: 0.4rem 0.6rem; border-radius: var(--radius-sm); border: 1px solid var(--border-card);">
+          <div style="display: flex; align-items: center; gap: 0.5rem;">
+            <span style="font-size: 0.75rem; color: var(--amber-accent); font-weight: 700;">#${idx + 1}</span>
+            <span class="country-pill" data-drawer-iso="${c.country_code}" style="cursor: pointer;">
+              ${c.country_name} (${c.country_code})
+            </span>
+            <span style="font-size: 0.72rem; color: var(--text-dim);">${c.region}</span>
+          </div>
+          <span style="font-size: 0.75rem; color: var(--text-muted); font-family: var(--font-heading); font-weight: 600;">
+            dist: ${item.dist.toFixed(2)}
+          </span>
+        </div>
+      `;
+    }).join('');
+
+    // Attach drawer clicks to the closest countries pills
+    listContainer.querySelectorAll('[data-drawer-iso]').forEach(pill => {
+      pill.addEventListener('click', () => {
+        const iso = pill.getAttribute('data-drawer-iso');
+        openCountryDrawer(iso);
+      });
+    });
+  }
+
+  // ============================================================================
+  // 10. Interactive Country Detail Inspector Drawer
+  // ============================================================================
+  function setupDrawer() {
+    const backdrop = document.getElementById('drawerBackdrop');
+    const closeBtn = document.getElementById('drawerCloseBtn');
+
+    if (backdrop) backdrop.addEventListener('click', closeCountryDrawer);
+    if (closeBtn) closeBtn.addEventListener('click', closeCountryDrawer);
+
+    // Escape key to close
+    document.addEventListener('keydown', e => {
+      if (e.key === 'Escape') closeCountryDrawer();
+    });
+  }
+
+  function openCountryDrawer(iso) {
+    if (!state.results || !state.results.countries) return;
+
+    const c = state.results.countries.find(item => item.country_code === iso);
+    if (!c) return;
+
+    state.activeCountryIso = iso;
+
+    const drawer = document.getElementById('countryDrawer');
+    const backdrop = document.getElementById('drawerBackdrop');
+    const content = document.getElementById('drawerContent');
+
+    if (!drawer || !backdrop || !content) return;
+
+    const activeCfg = `${state.activeDistance}_k${state.activeK}`;
+    const clId = c[`cluster_${activeCfg}`] !== undefined ? c[`cluster_${activeCfg}`] : c.cluster;
+    const clColor = PALETTE[clId % PALETTE.length];
+    const clName = c.cluster_name || `Cluster ${clId}`;
+
+    const mean = state.results.scaler.mean;
+
+    // Build Indicators Comparison List
+    const indicatorBarsHtml = INDICATOR_CONFIGS.map(cfg => {
+      const val = c.indicators[cfg.key];
+      const gMean = mean[cfg.key];
+      const maxVal = cfg.max;
+      const pct = Math.min(100, Math.max(6, (val / maxVal) * 100));
+      const meanPct = Math.min(100, Math.max(6, (gMean / maxVal) * 100));
+
+      const isHigher = val > gMean;
+      const diffStr = (val - gMean).toFixed(1);
+
+      return `
+        <div style="margin-bottom: 0.85rem;">
+          <div style="display: flex; justify-content: space-between; font-size: 0.82rem; margin-bottom: 0.25rem;">
+            <span style="color: #cbd5e1; font-weight: 500;">${cfg.label}</span>
+            <span>
+              <strong style="color: #ffffff;">${val !== undefined ? val.toFixed(1) + cfg.unit : 'N/A'}</strong>
+              <small style="color: ${isHigher ? 'var(--rose-accent)' : 'var(--cyan-accent)'}; margin-left: 4px;">
+                (${isHigher ? '+' : ''}${diffStr}${cfg.unit} vs global)
+              </small>
+            </span>
+          </div>
+          <div class="bar-track" style="position: relative; height: 8px;">
+            <div class="bar-fill" style="width: ${pct}%; background: ${clColor};"></div>
+            <!-- Global Average Marker -->
+            <div style="position: absolute; left: ${meanPct}%; top: -2px; width: 2px; height: 12px; background: #ffffff; box-shadow: 0 0 4px #ffffff;" title="Global Average: ${gMean.toFixed(1)}${cfg.unit}"></div>
+          </div>
+        </div>
+      `;
+    }).join('');
+
+    content.innerHTML = `
+      <div style="margin-bottom: 1.5rem;">
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.5rem;">
+          <div>
+            <div style="font-size: 0.8rem; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.05em;">Sovereign State Audit</div>
+            <h2 style="font-size: 1.6rem; color: #ffffff; font-family: var(--font-heading); margin-top: 0.2rem;">${c.country_name}</h2>
+          </div>
+          <span style="font-size: 1.1rem; padding: 0.2rem 0.6rem; border-radius: 6px; background: rgba(255,255,255,0.08); font-weight: 700;">${c.country_code}</span>
+        </div>
+
+        <div style="display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; margin-top: 0.5rem;">
+          <span class="pill-status" style="background: ${clColor}22; color: ${clColor}; border: 1px solid ${clColor}44; font-weight: 700;">
+            C${clId}: ${clName}
+          </span>
+          <span class="pill-status pill-info">${c.region}</span>
+          <span class="pill-status pill-warning">${c.income_group || 'Income N/A'}</span>
+        </div>
+      </div>
+
+      <!-- Quick Metrics Grid -->
+      <div class="drawer-metric-grid">
+        <div class="drawer-metric-box">
+          <div class="drawer-metric-label">GDP Per Capita</div>
+          <div class="drawer-metric-val">${c.gdp_per_capita ? '$' + Math.round(c.gdp_per_capita).toLocaleString() : 'N/A'}</div>
+        </div>
+        <div class="drawer-metric-box">
+          <div class="drawer-metric-label">Silhouette Score</div>
+          <div class="drawer-metric-val" style="color: ${c.is_borderline ? 'var(--amber-accent)' : 'var(--emerald-accent)'};">
+            ${c.silhouette.toFixed(3)}
+          </div>
+        </div>
+        <div class="drawer-metric-box">
+          <div class="drawer-metric-label">PCA Coordinate 1</div>
+          <div class="drawer-metric-val">${c.pca_x.toFixed(2)}</div>
+        </div>
+        <div class="drawer-metric-box">
+          <div class="drawer-metric-label">PCA Coordinate 2</div>
+          <div class="drawer-metric-val">${c.pca_y.toFixed(2)}</div>
+        </div>
+      </div>
+
+      ${c.is_borderline ? `
+        <div style="background: rgba(251, 191, 36, 0.1); border-left: 3px solid var(--amber-accent); padding: 0.75rem 1rem; border-radius: 4px; margin-bottom: 1.5rem; font-size: 0.82rem; color: #fde68a;">
+          ⚠️ <strong>Borderline Nation:</strong> Low silhouette score indicates this country lies on the transition boundary between malnutrition macro-clusters.
+        </div>
+      ` : ''}
+
+      <!-- Transfer to Simulator Action CTA -->
+      <div style="margin-bottom: 1.5rem;">
+        <button id="drawerLoadSimulatorBtn" class="btn-action" style="width: 100%; justify-content: center; padding: 0.75rem; background: rgba(6, 182, 212, 0.15); border-color: rgba(6, 182, 212, 0.4); color: var(--cyan-accent); font-size: 0.9rem;">
+          ⚡ Load ${c.country_name}'s Indicators into Simulator
+        </button>
+      </div>
+
+      <!-- Indicator Breakdown vs Global Mean -->
+      <div>
+        <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 0.75rem;">
+          <h4 style="font-size: 0.95rem; color: #ffffff;">9 Health Indicators vs. Global Baseline</h4>
+          <span style="font-size: 0.72rem; color: var(--text-dim);">White tick = Global Mean</span>
+        </div>
+        <div>
+          ${indicatorBarsHtml}
+        </div>
+      </div>
+    `;
+
+    // Hook up Load into Simulator button
+    const loadBtn = document.getElementById('drawerLoadSimulatorBtn');
+    if (loadBtn) {
+      loadBtn.addEventListener('click', () => {
+        // Copy real indicators into simulated values
+        for (const [k, v] of Object.entries(c.indicators)) {
+          state.simulatedValues[k] = v;
+          const slider = document.getElementById(`slider_${k}`);
+          const valLabel = document.getElementById(`val_${k}`);
+          if (slider) slider.value = v;
+          if (valLabel) {
+            const cfg = INDICATOR_CONFIGS.find(cfg => cfg.key === k);
+            valLabel.textContent = `${v.toFixed(1)}${cfg ? cfg.unit : '%'}`;
+          }
+        }
+
+        updateSimulator();
+        closeCountryDrawer();
+
+        const simSec = document.getElementById('simulator');
+        if (simSec) simSec.scrollIntoView({ behavior: 'smooth' });
+      });
+    }
+
+    // Open drawer & backdrop
+    backdrop.classList.add('active');
+    drawer.classList.add('active');
+  }
+
+  function closeCountryDrawer() {
+    const drawer = document.getElementById('countryDrawer');
+    const backdrop = document.getElementById('drawerBackdrop');
+    if (drawer) drawer.classList.remove('active');
+    if (backdrop) backdrop.classList.remove('active');
+    state.activeCountryIso = null;
+  }
+
+  // ============================================================================
+  // 11. Hierarchical Clustering Section & Dendrogram
   // ============================================================================
   function renderHierarchicalSection() {
     renderDendrogram();
@@ -642,7 +1335,6 @@
     const height = 360;
     const margin = { top: 30, right: 30, bottom: 40, left: 60 };
 
-    // Find bounds
     const allX = ddata.icoord.flat();
     const allY = ddata.dcoord.flat();
     const xMin = Math.min(...allX);
@@ -695,21 +1387,22 @@
   }
 
   // ============================================================================
-  // 9. Cluster Profile Cards & Heatmap
+  // 12. Cluster Profile Cards & Heatmap (with Drawer Hooks)
   // ============================================================================
   function renderClusterProfiles() {
     const grid = document.getElementById('clusterProfilesGrid');
     if (!grid) return;
 
     const profiles = state.results.cluster_profiles;
-    const feats = state.results.features;
 
     grid.innerHTML = profiles.map(p => {
       const color = PALETTE[p.cluster_id % PALETTE.length];
       
-      // Typical countries pills
+      // Typical countries pills (clickable to open drawer)
       const typicalPills = p.typical_countries.map(tc => `
-        <span class="country-pill">${tc.country_name} (${tc.country_code})</span>
+        <span class="country-pill" data-drawer-iso="${tc.country_code}" title="Click to view ${tc.country_name} in detail inspector">
+          ${tc.country_name} (${tc.country_code})
+        </span>
       `).join('');
 
       // Top regions
@@ -774,6 +1467,15 @@
       `;
     }).join('');
 
+    // Attach click listeners to typical country pills
+    grid.querySelectorAll('[data-drawer-iso]').forEach(pill => {
+      pill.addEventListener('click', e => {
+        e.stopPropagation();
+        const iso = pill.getAttribute('data-drawer-iso');
+        openCountryDrawer(iso);
+      });
+    });
+
     renderZScoreHeatmap();
   }
 
@@ -835,7 +1537,7 @@
   }
 
   // ============================================================================
-  // 10. Borderline Countries Table
+  // 13. Borderline Countries Table (with Click-to-Drawer)
   // ============================================================================
   function renderBorderlineTable() {
     const tbody = document.querySelector('#borderlineTable tbody');
@@ -845,7 +1547,7 @@
     const borderlines = countries.filter(c => c.is_borderline).sort((a, b) => a.silhouette - b.silhouette);
 
     tbody.innerHTML = borderlines.map(c => `
-      <tr>
+      <tr data-drawer-iso="${c.country_code}" style="cursor: pointer;" title="Click to inspect ${c.country_name} in detail drawer">
         <td><strong>${c.country_name}</strong> (${c.country_code})</td>
         <td>${c.region}</td>
         <td>${c.income_group || 'N/A'}</td>
@@ -856,10 +1558,17 @@
         <td>${c.indicators.adult_obesity || 'N/A'}%</td>
       </tr>
     `).join('');
+
+    tbody.querySelectorAll('tr[data-drawer-iso]').forEach(row => {
+      row.addEventListener('click', () => {
+        const iso = row.getAttribute('data-drawer-iso');
+        openCountryDrawer(iso);
+      });
+    });
   }
 
   // ============================================================================
-  // 11. Reproduce CLI Commands
+  // 14. Reproduce CLI Commands
   // ============================================================================
   function renderReproduceSection() {
     const box = document.getElementById('reproduceCodeBox');
@@ -881,17 +1590,15 @@ python backend/run_pipeline.py
   }
 
   // ============================================================================
-  // 12. Event Listeners & Interactive Controls
+  // 15. Event Listeners & Interactive Controls
   // ============================================================================
   function setupEventListeners() {
     // Distance toggle buttons
     const distBtns = document.querySelectorAll('[data-dist]');
     distBtns.forEach(btn => {
       btn.addEventListener('click', () => {
-        distBtns.forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-        state.activeDistance = btn.getAttribute('data-dist');
-        renderPCAExplorer();
+        const dist = btn.getAttribute('data-dist');
+        switchActiveModel(dist, state.activeK);
       });
     });
 
@@ -899,10 +1606,8 @@ python backend/run_pipeline.py
     const kBtns = document.querySelectorAll('[data-k]');
     kBtns.forEach(btn => {
       btn.addEventListener('click', () => {
-        kBtns.forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-        state.activeK = parseInt(btn.getAttribute('data-k'), 10);
-        renderPCAExplorer();
+        const k = parseInt(btn.getAttribute('data-k'), 10);
+        switchActiveModel(state.activeDistance, k);
       });
     });
 
@@ -940,7 +1645,7 @@ python backend/run_pipeline.py
   }
 
   // ============================================================================
-  // 13. Smooth Scroll-Reveal
+  // 16. Smooth Scroll-Reveal
   // ============================================================================
   function setupScrollReveal() {
     const reveals = document.querySelectorAll('.reveal-on-scroll');
