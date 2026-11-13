@@ -21,6 +21,7 @@
     <div class="aurora-blob blob-1"></div>
     <div class="aurora-blob blob-2"></div>
     <div class="aurora-blob blob-3"></div>
+    <div class="aurora-blob blob-4"></div>
   </div>
 
   <!-- Demo Data Banner (activates only if synthetic demo data is loaded) -->
@@ -49,6 +50,9 @@
         <li><a href="#limitations">Limitations</a></li>
         <li><a href="#reproduce" class="nav-cta">Reproduce</a></li>
       </ul>
+      <button id="themeToggleBtn" class="theme-toggle-btn" aria-label="Toggle Dark / Light Theme" title="Toggle Dark/Light Mode">
+        <span id="themeToggleIcon">🌙</span> <span id="themeToggleText">Dark Mode</span>
+      </button>
     </div>
   </header>
 
@@ -209,7 +213,7 @@
         <h4 style="font-size: 1.15rem; color: var(--amber-accent); margin-bottom: 0.5rem;">
           Analytical Decision: Why K = 3 Was Selected by Composite Rank
         </h4>
-        <p style="font-size: 0.94rem; color: #cbd5e1; line-height: 1.7; margin-bottom: 0.6rem;">
+        <p style="font-size: 0.94rem; color: var(--text-main); line-height: 1.7; margin-bottom: 0.6rem;">
           Our validation pipeline ranks configurations using a composite metric combining <strong>Silhouette Score</strong> (cohesion/separation), 
           <strong>Davies-Bouldin Index</strong> (inter-cluster overlap), and <strong>Bootstrap Stability</strong> (ARI over 20 random 80% subsamples).
           <strong>Euclidean K-Means with K = 3</strong> achieved the optimal composite rank (1.0), delivering the highest silhouette score (<strong>0.2726</strong>) 

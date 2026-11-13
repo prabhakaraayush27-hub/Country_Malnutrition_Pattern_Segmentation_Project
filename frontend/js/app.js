@@ -7,16 +7,16 @@
 (function () {
   'use strict';
 
-  // Cluster Color Palette
+  // Cluster Color Palette (High contrast in both Light & Dark modes)
   const PALETTE = [
-    '#f43f5e', // Cluster 0: Rose / Red
-    '#06b6d4', // Cluster 1: Cyan
-    '#10b981', // Cluster 2: Emerald
-    '#f59e0b', // Cluster 3: Amber
-    '#a855f7', // Cluster 4: Purple
-    '#ec4899', // Cluster 5: Pink
-    '#3b82f6', // Cluster 6: Blue
-    '#84cc16'  // Cluster 7: Lime
+    '#e11d48', // Cluster 0: Rose
+    '#0284c7', // Cluster 1: Sky / Cyan
+    '#059669', // Cluster 2: Emerald
+    '#d97706', // Cluster 3: Amber
+    '#7c3aed', // Cluster 4: Violet
+    '#db2777', // Cluster 5: Pink
+    '#2563eb', // Cluster 6: Blue
+    '#65a30d'  // Cluster 7: Lime
   ];
 
   // Indicator Slider Configurations for Live Simulator
@@ -107,6 +107,22 @@
     activeCountryIso: null
   };
 
+  // Helper for Theme-Aware SVG rendering
+  function getThemeColors() {
+    const isDark = document.body.classList.contains('dark-theme');
+    return {
+      isDark,
+      grid: isDark ? '#1e293b' : '#e2e8f0',
+      axisText: isDark ? '#94a3b8' : '#64748b',
+      labelText: isDark ? '#cbd5e1' : '#334155',
+      mainText: isDark ? '#f8fafc' : '#0f172a',
+      cardBorder: isDark ? 'rgba(255, 255, 255, 0.08)' : '#e2e8f0',
+      zeroAxis: isDark ? '#334155' : '#cbd5e1',
+      heatmapBase: isDark ? '#1e293b' : '#f1f5f9',
+      errorBar: isDark ? '#64748b' : '#94a3b8'
+    };
+  }
+
   document.addEventListener('DOMContentLoaded', initApp);
 
   function initApp() {
@@ -149,6 +165,7 @@
     setupDrawer();
     setupPlayProgression();
     setupTableModelSwitching();
+    setupThemeToggle();
     setupScrollReveal();
   }
 
@@ -160,6 +177,32 @@
         <p style="color: var(--text-muted);">${msg}</p>
       </div>`;
     }
+  }
+
+  // ============================================================================
+  // Theme Toggle (Light / Dark)
+  // ============================================================================
+  function setupThemeToggle() {
+    const btn = document.getElementById('themeToggleBtn');
+    const icon = document.getElementById('themeToggleIcon');
+    const text = document.getElementById('themeToggleText');
+    if (!btn) return;
+
+    btn.addEventListener('click', () => {
+      const isDark = document.body.classList.toggle('dark-theme');
+      if (icon) icon.textContent = isDark ? '☀️' : '🌙';
+      if (text) text.textContent = isDark ? 'Light Mode' : 'Dark Mode';
+
+      // Re-render SVG charts to update axis strokes & colors
+      renderCorrelationHeatmap();
+      renderElbowChart();
+      renderValidationChart();
+      renderStabilityChart();
+      renderPCAExplorer();
+      renderZScoreHeatmap();
+      renderDendrogram();
+      updateSimulator();
+    });
   }
 
   // ============================================================================
@@ -268,7 +311,7 @@
         <div class="step-num">${s.num}</div>
         <div class="step-content">
           <div style="display: flex; justify-content: space-between; align-items: baseline; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 0.35rem;">
-            <h3 style="font-size: 1.1rem; color: #ffffff;">${s.title}</h3>
+            <h3 style="font-size: 1.1rem; color: var(--text-main);">${s.title}</h3>
             <span class="pill-status pill-info">${s.badge}</span>
           </div>
           <p style="font-size: 0.88rem; color: var(--text-muted); line-height: 1.6;">${s.desc}</p>
@@ -313,6 +356,7 @@
     const container = document.getElementById('correlationHeatmapSvg');
     if (!container) return;
 
+    const colors = getThemeColors();
     const feats = state.results.features;
     const corr = state.results.preprocessing_audit.correlation_matrix;
     const n = feats.length;
@@ -329,30 +373,30 @@
     for (let i = 0; i < n; i++) {
       const f1 = feats[i];
       // Y label
-      svg += `<text x="${margin.left - 10}" y="${margin.top + i * cellSize + cellSize / 2 + 4}" fill="#94a3b8" font-size="11" text-anchor="end">${f1.replace(/_/g, ' ')}</text>`;
+      svg += `<text x="${margin.left - 10}" y="${margin.top + i * cellSize + cellSize / 2 + 4}" fill="${colors.axisText}" font-size="11" text-anchor="end">${f1.replace(/_/g, ' ')}</text>`;
       // X label
-      svg += `<text x="${margin.left + i * cellSize + cellSize / 2}" y="${margin.top - 12}" fill="#94a3b8" font-size="10" text-anchor="start" transform="rotate(-35, ${margin.left + i * cellSize + cellSize / 2}, ${margin.top - 12})">${f1.replace(/_/g, ' ')}</text>`;
+      svg += `<text x="${margin.left + i * cellSize + cellSize / 2}" y="${margin.top - 12}" fill="${colors.axisText}" font-size="10" text-anchor="start" transform="rotate(-35, ${margin.left + i * cellSize + cellSize / 2}, ${margin.top - 12})">${f1.replace(/_/g, ' ')}</text>`;
 
       for (let j = 0; j < n; j++) {
         const f2 = feats[j];
         const val = corr[f1] ? corr[f1][f2] : 0;
         
-        let fillColor = '#1e293b';
+        let fillColor = colors.heatmapBase;
         if (val > 0) {
           const t = Math.min(1, val);
-          fillColor = interpolateColor('#1e293b', '#f43f5e', t);
+          fillColor = interpolateColor(colors.heatmapBase, '#e11d48', t);
         } else {
           const t = Math.min(1, Math.abs(val));
-          fillColor = interpolateColor('#1e293b', '#06b6d4', t);
+          fillColor = interpolateColor(colors.heatmapBase, '#0284c7', t);
         }
 
         const x = margin.left + j * cellSize;
         const y = margin.top + i * cellSize;
 
-        svg += `<rect x="${x}" y="${y}" width="${cellSize - 2}" height="${cellSize - 2}" rx="3" fill="${fillColor}" stroke="rgba(255,255,255,0.06)" stroke-width="1">
+        svg += `<rect x="${x}" y="${y}" width="${cellSize - 2}" height="${cellSize - 2}" rx="3" fill="${fillColor}" stroke="${colors.cardBorder}" stroke-width="1">
           <title>${f1} vs ${f2}: r = ${val.toFixed(2)}</title>
         </rect>`;
-        svg += `<text x="${x + cellSize / 2 - 1}" y="${y + cellSize / 2 + 4}" fill="${Math.abs(val) > 0.45 ? '#ffffff' : '#94a3b8'}" font-size="9.5" font-weight="${Math.abs(val) > 0.6 ? '700' : '400'}" text-anchor="middle">${val.toFixed(2)}</text>`;
+        svg += `<text x="${x + cellSize / 2 - 1}" y="${y + cellSize / 2 + 4}" fill="${Math.abs(val) > 0.45 ? '#ffffff' : colors.labelText}" font-size="9.5" font-weight="${Math.abs(val) > 0.6 ? '700' : '500'}" text-anchor="middle">${val.toFixed(2)}</text>`;
       }
     }
 
@@ -375,7 +419,7 @@
       r: parseInt(result[1], 16),
       g: parseInt(result[2], 16),
       b: parseInt(result[3], 16)
-    } : { r: 30, g: 41, b: 59 };
+    } : { r: 241, g: 245, b: 249 };
   }
 
   // ============================================================================
@@ -391,6 +435,7 @@
     const container = document.getElementById('elbowChartSvg');
     if (!container) return;
 
+    const colors = getThemeColors();
     const data = state.results.model_comparison;
     const eucData = data.filter(d => d.distance === 'euclidean').sort((a, b) => a.k - b.k);
 
@@ -411,8 +456,8 @@
     // Grid lines
     for (let k = minK; k <= maxK; k++) {
       const x = xScale(k);
-      svg += `<line x1="${x}" y1="${margin.top}" x2="${x}" y2="${height - margin.bottom}" stroke="#1e293b" stroke-width="1"/>`;
-      svg += `<text x="${x}" y="${height - margin.bottom + 18}" fill="#94a3b8" font-size="11" text-anchor="middle">K=${k}</text>`;
+      svg += `<line x1="${x}" y1="${margin.top}" x2="${x}" y2="${height - margin.bottom}" stroke="${colors.grid}" stroke-width="1"/>`;
+      svg += `<text x="${x}" y="${height - margin.bottom + 18}" fill="${colors.axisText}" font-size="11" text-anchor="middle">K=${k}</text>`;
     }
 
     // Euclidean line
@@ -436,7 +481,7 @@
     });
 
     // Y Axis label
-    svg += `<text x="${margin.left - 10}" y="${margin.top - 8}" fill="#94a3b8" font-size="10" text-anchor="start">Inertia (WCSS)</text>`;
+    svg += `<text x="${margin.left - 10}" y="${margin.top - 8}" fill="${colors.axisText}" font-size="10" text-anchor="start">Inertia (WCSS)</text>`;
     svg += `</svg>`;
     container.innerHTML = svg;
   }
@@ -445,6 +490,7 @@
     const container = document.getElementById('validationChartSvg');
     if (!container) return;
 
+    const colors = getThemeColors();
     const data = state.results.model_comparison;
     const eucData = data.filter(d => d.distance === 'euclidean').sort((a, b) => a.k - b.k);
     const manData = data.filter(d => d.distance === 'manhattan').sort((a, b) => a.k - b.k);
@@ -465,8 +511,8 @@
     // Grid lines
     for (let k = minK; k <= maxK; k++) {
       const x = xScale(k);
-      svg += `<line x1="${x}" y1="${margin.top}" x2="${x}" y2="${height - margin.bottom}" stroke="#1e293b" stroke-width="1"/>`;
-      svg += `<text x="${x}" y="${height - margin.bottom + 18}" fill="#94a3b8" font-size="11" text-anchor="middle">K=${k}</text>`;
+      svg += `<line x1="${x}" y1="${margin.top}" x2="${x}" y2="${height - margin.bottom}" stroke="${colors.grid}" stroke-width="1"/>`;
+      svg += `<text x="${x}" y="${height - margin.bottom + 18}" fill="${colors.axisText}" font-size="11" text-anchor="middle">K=${k}</text>`;
     }
 
     // Lines
@@ -496,11 +542,11 @@
 
     // Legend
     svg += `<circle cx="${width - 170}" cy="${margin.top + 5}" r="4" fill="var(--cyan-accent)"/>`;
-    svg += `<text x="${width - 155}" y="${margin.top + 9}" fill="#cbd5e1" font-size="10">Euclidean KMeans</text>`;
+    svg += `<text x="${width - 155}" y="${margin.top + 9}" fill="${colors.labelText}" font-size="10">Euclidean KMeans</text>`;
     svg += `<rect x="${width - 174}" y="${margin.top + 18}" width="7" height="7" fill="var(--rose-accent)"/>`;
-    svg += `<text x="${width - 155}" y="${margin.top + 25}" fill="#cbd5e1" font-size="10">Manhattan KMedians</text>`;
+    svg += `<text x="${width - 155}" y="${margin.top + 25}" fill="${colors.labelText}" font-size="10">Manhattan KMedians</text>`;
 
-    svg += `<text x="${margin.left - 10}" y="${margin.top - 8}" fill="#94a3b8" font-size="10" text-anchor="start">Silhouette (Euclidean Ruler)</text>`;
+    svg += `<text x="${margin.left - 10}" y="${margin.top - 8}" fill="${colors.axisText}" font-size="10" text-anchor="start">Silhouette (Euclidean Ruler)</text>`;
     svg += `</svg>`;
     container.innerHTML = svg;
   }
@@ -509,6 +555,7 @@
     const container = document.getElementById('stabilityChartSvg');
     if (!container) return;
 
+    const colors = getThemeColors();
     const data = state.results.model_comparison;
     const eucData = data.filter(d => d.distance === 'euclidean').sort((a, b) => a.k - b.k);
 
@@ -536,19 +583,19 @@
       const isSelected = d.config_id === state.results.metadata.selected_config_id;
 
       // Error bar
-      svg += `<line x1="${x}" y1="${yTop}" x2="${x}" y2="${yBot}" stroke="#64748b" stroke-width="1.5"/>`;
-      svg += `<line x1="${x - 4}" y1="${yTop}" x2="${x + 4}" y2="${yTop}" stroke="#64748b" stroke-width="1.5"/>`;
-      svg += `<line x1="${x - 4}" y1="${yBot}" x2="${x + 4}" y2="${yBot}" stroke="#64748b" stroke-width="1.5"/>`;
+      svg += `<line x1="${x}" y1="${yTop}" x2="${x}" y2="${yBot}" stroke="${colors.errorBar}" stroke-width="1.5"/>`;
+      svg += `<line x1="${x - 4}" y1="${yTop}" x2="${x + 4}" y2="${yTop}" stroke="${colors.errorBar}" stroke-width="1.5"/>`;
+      svg += `<line x1="${x - 4}" y1="${yBot}" x2="${x + 4}" y2="${yBot}" stroke="${colors.errorBar}" stroke-width="1.5"/>`;
 
       // Point
       svg += `<circle cx="${x}" cy="${y}" r="${isSelected ? 7 : 5}" fill="${isSelected ? 'var(--amber-accent)' : 'var(--indigo-accent)'}" stroke="#ffffff" stroke-width="1.5">
         <title>K=${d.k}: ARI = ${d.stability_mean_ari.toFixed(3)} ± ${d.stability_std_ari.toFixed(3)}</title>
       </circle>`;
-      svg += `<text x="${x}" y="${y - 12}" fill="${isSelected ? 'var(--amber-accent)' : '#cbd5e1'}" font-size="10" font-weight="${isSelected ? '700' : '500'}" text-anchor="middle">${d.stability_mean_ari.toFixed(2)}</text>`;
-      svg += `<text x="${x}" y="${height - margin.bottom + 18}" fill="#94a3b8" font-size="11" text-anchor="middle">K=${d.k}</text>`;
+      svg += `<text x="${x}" y="${y - 12}" fill="${isSelected ? 'var(--amber-accent)' : colors.labelText}" font-size="10" font-weight="${isSelected ? '700' : '500'}" text-anchor="middle">${d.stability_mean_ari.toFixed(2)}</text>`;
+      svg += `<text x="${x}" y="${height - margin.bottom + 18}" fill="${colors.axisText}" font-size="11" text-anchor="middle">K=${d.k}</text>`;
     });
 
-    svg += `<text x="${margin.left - 10}" y="${margin.top - 8}" fill="#94a3b8" font-size="10" text-anchor="start">Bootstrap Stability (Mean ARI)</text>`;
+    svg += `<text x="${margin.left - 10}" y="${margin.top - 8}" fill="${colors.axisText}" font-size="10" text-anchor="start">Bootstrap Stability (Mean ARI)</text>`;
     svg += `</svg>`;
     container.innerHTML = svg;
   }
@@ -633,6 +680,7 @@
     const tooltip = document.getElementById('pcaTooltip');
     if (!container || !tooltip) return;
 
+    const colors = getThemeColors();
     const width = 860;
     const height = 540;
     const margin = { top: 40, right: 40, bottom: 50, left: 60 };
@@ -666,18 +714,21 @@
     // Center Axes (0,0)
     const xZero = xScale(0);
     const yZero = yScale(0);
-    svg += `<line x1="${xScale(xMin)}" y1="${yZero}" x2="${xScale(xMax)}" y2="${yZero}" stroke="#334155" stroke-width="1" stroke-dasharray="3,3"/>`;
-    svg += `<line x1="${xZero}" y1="${yScale(yMin)}" x2="${xZero}" y2="${yScale(yMax)}" stroke="#334155" stroke-width="1" stroke-dasharray="3,3"/>`;
+    svg += `<line x1="${xScale(xMin)}" y1="${yZero}" x2="${xScale(xMax)}" y2="${yZero}" stroke="${colors.zeroAxis}" stroke-width="1" stroke-dasharray="3,3"/>`;
+    svg += `<line x1="${xZero}" y1="${yScale(yMin)}" x2="${xZero}" y2="${yScale(yMax)}" stroke="${colors.zeroAxis}" stroke-width="1" stroke-dasharray="3,3"/>`;
 
     // Feature Loadings Vectors (Biplot)
     if (state.showLoadings && pcaMeta.loadings) {
       const scaleLoadings = 3.8;
+      const arrowStroke = colors.isDark ? 'rgba(251, 191, 36, 0.7)' : 'rgba(217, 119, 6, 0.85)';
+      const arrowText = colors.isDark ? '#fde68a' : '#92400e';
+
       for (const [feat, coords] of Object.entries(pcaMeta.loadings)) {
         const vx = xScale(coords[0] * scaleLoadings);
         const vy = yScale(coords[1] * scaleLoadings);
-        svg += `<line x1="${xZero}" y1="${yZero}" x2="${vx}" y2="${vy}" stroke="rgba(251, 191, 36, 0.6)" stroke-width="1.4"/>`;
+        svg += `<line x1="${xZero}" y1="${yZero}" x2="${vx}" y2="${vy}" stroke="${arrowStroke}" stroke-width="1.5"/>`;
         svg += `<circle cx="${vx}" cy="${vy}" r="2.5" fill="var(--amber-accent)"/>`;
-        svg += `<text x="${vx + 4}" y="${vy + 3}" fill="#fde68a" font-size="9" font-weight="600">${feat.replace(/_/g, ' ')}</text>`;
+        svg += `<text x="${vx + 4}" y="${vy + 3}" fill="${arrowText}" font-size="9" font-weight="700">${feat.replace(/_/g, ' ')}</text>`;
       }
     }
 
@@ -692,9 +743,9 @@
       svg += `<circle 
         cx="${cx}" cy="${cy}" r="${isBorderline ? 6 : 5}" 
         fill="${dotColor}" 
-        stroke="${isBorderline ? '#fbbf24' : '#ffffff'}" 
-        stroke-width="${isBorderline ? 2 : 0.8}" 
-        opacity="0.88"
+        stroke="${isBorderline ? 'var(--amber-accent)' : '#ffffff'}" 
+        stroke-width="${isBorderline ? 2 : 1}" 
+        opacity="0.9"
         class="pca-dot"
         data-iso="${c.country_code}"
         style="cursor: pointer; transition: transform 0.15s ease;"
@@ -706,6 +757,8 @@
       const simX = xScale(state.simulatedCoords.x);
       const simY = yScale(state.simulatedCoords.y);
       const simClColor = PALETTE[state.simulatedCluster % PALETTE.length];
+      const simBoxBg = colors.isDark ? 'rgba(15, 23, 42, 0.95)' : 'rgba(255, 255, 255, 0.98)';
+      const simBoxText = colors.isDark ? '#ffffff' : '#0f172a';
 
       svg += `
         <g id="simulatedPcaGroup" style="cursor: pointer;">
@@ -714,15 +767,15 @@
           <circle cx="${simX}" cy="${simY}" r="9" fill="${simClColor}" stroke="#ffffff" stroke-width="2.5"></circle>
           <circle cx="${simX}" cy="${simY}" r="3" fill="#ffffff"></circle>
           <!-- Callout Label -->
-          <rect x="${simX + 12}" y="${simY - 14}" width="130" height="22" rx="4" fill="rgba(15, 23, 42, 0.9)" stroke="${simClColor}" stroke-width="1.2"></rect>
-          <text x="${simX + 18}" y="${simY + 1}" fill="#ffffff" font-size="10" font-weight="700">★ SIMULATED NATION</text>
+          <rect x="${simX + 12}" y="${simY - 14}" width="134" height="22" rx="4" fill="${simBoxBg}" stroke="${simClColor}" stroke-width="1.2"></rect>
+          <text x="${simX + 18}" y="${simY + 1}" fill="${simBoxText}" font-size="10" font-weight="700">★ SIMULATED NATION</text>
         </g>
       `;
     }
 
     // Axis Labels
-    svg += `<text x="${width / 2}" y="${height - 12}" fill="#94a3b8" font-size="12" font-weight="600" text-anchor="middle">Principal Component 1 (${(pcaMeta.variance_explained[0]*100).toFixed(1)}% Variance Explained - Undernutrition Axis)</text>`;
-    svg += `<text x="${margin.left - 12}" y="${margin.top - 14}" fill="#94a3b8" font-size="11" font-weight="600" text-anchor="start">PC2 (${(pcaMeta.variance_explained[1]*100).toFixed(1)}% Variance)</text>`;
+    svg += `<text x="${width / 2}" y="${height - 12}" fill="${colors.axisText}" font-size="12" font-weight="600" text-anchor="middle">Principal Component 1 (${(pcaMeta.variance_explained[0]*100).toFixed(1)}% Variance Explained - Undernutrition Axis)</text>`;
+    svg += `<text x="${margin.left - 12}" y="${margin.top - 14}" fill="${colors.axisText}" font-size="11" font-weight="600" text-anchor="start">PC2 (${(pcaMeta.variance_explained[1]*100).toFixed(1)}% Variance)</text>`;
 
     svg += `</svg>`;
     container.innerHTML = svg;
@@ -753,14 +806,14 @@
           <div class="tooltip-row"><span>Region:</span> <span class="tooltip-val">${c.region}</span></div>
           <div class="tooltip-row"><span>Income:</span> <span class="tooltip-val">${c.income_group || 'N/A'}</span></div>
           <div class="tooltip-row"><span>Silhouette:</span> <span class="tooltip-val">${c.silhouette.toFixed(3)} ${c.is_borderline ? '⚠️ Borderline' : ''}</span></div>
-          <div style="border-top: 1px solid rgba(255,255,255,0.1); margin: 6px 0; padding-top: 4px;">
+          <div style="border-top: 1px solid rgba(148, 163, 184, 0.2); margin: 6px 0; padding-top: 4px;">
             <div class="tooltip-row"><span>Stunting:</span> <span class="tooltip-val">${c.indicators.stunting || 'N/A'}%</span></div>
             <div class="tooltip-row"><span>Wasting:</span> <span class="tooltip-val">${c.indicators.wasting || 'N/A'}%</span></div>
             <div class="tooltip-row"><span>Child Overweight:</span> <span class="tooltip-val">${c.indicators.child_overweight || 'N/A'}%</span></div>
             <div class="tooltip-row"><span>Adult Obesity:</span> <span class="tooltip-val">${c.indicators.adult_obesity || 'N/A'}%</span></div>
             <div class="tooltip-row"><span>GDP per cap:</span> <span class="tooltip-val">${c.gdp_per_capita ? '$' + Math.round(c.gdp_per_capita).toLocaleString() : 'N/A'}</span></div>
           </div>
-          <div style="margin-top: 6px; font-size: 0.72rem; color: var(--amber-accent); text-align: center;">Click dot to inspect full profile &rarr;</div>
+          <div style="margin-top: 6px; font-size: 0.72rem; color: var(--amber-accent); text-align: center; font-weight: 600;">Click dot to inspect full profile &rarr;</div>
         `;
 
         const rect = dot.getBoundingClientRect();
@@ -805,7 +858,7 @@
       itemsHtml += `
         <div style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.82rem; margin-right: 1.25rem; margin-bottom: 0.35rem;">
           <span style="width: 10px; height: 10px; border-radius: 50%; background: ${color}; display: inline-block;"></span>
-          <span style="color: #e2e8f0; font-weight: 600;">Cluster ${cl}</span>
+          <span style="color: var(--text-main); font-weight: 600;">Cluster ${cl}</span>
         </div>
       `;
     }
@@ -830,10 +883,8 @@
 
     btn.addEventListener('click', () => {
       if (state.isPlayingProgression) {
-        // Stop playback
         stopPlayProgression();
       } else {
-        // Start playback
         startPlayProgression();
       }
     });
@@ -929,7 +980,6 @@
         const pcaSec = document.getElementById('pca-explorer');
         if (pcaSec) {
           pcaSec.scrollIntoView({ behavior: 'smooth' });
-          // Highlight simulated marker
           setTimeout(() => {
             const marker = document.querySelector('#simulatedPcaGroup');
             if (marker) {
@@ -1021,7 +1071,6 @@
     state.simulatedCoords = { x: px, y: py };
 
     // 4. Update UI Outputs
-    // Active Model Badge
     const modelBadge = document.getElementById('simActiveModelBadge');
     if (modelBadge) {
       modelBadge.textContent = `${state.activeDistance.toUpperCase()} (K = ${state.activeK})`;
@@ -1038,7 +1087,7 @@
           <span style="width: 14px; height: 14px; border-radius: 50%; background: ${color}; box-shadow: 0 0 10px ${color};"></span>
           <div>
             <div style="font-size: 0.72rem; color: var(--text-dim); text-transform: uppercase;">Predicted Typology</div>
-            <div style="font-size: 1.1rem; font-weight: 700; color: #ffffff;">${clName}</div>
+            <div style="font-size: 1.1rem; font-weight: 700; color: var(--text-main);">${clName}</div>
           </div>
         </div>
         <span class="pill-status" style="background: ${color}22; color: ${color}; border: 1px solid ${color}44; font-size: 0.85rem; font-weight: 700;">
@@ -1060,7 +1109,7 @@
         return `
           <div class="sim-dist-item">
             <div class="sim-dist-meta">
-              <span style="color: ${isMin ? '#ffffff' : 'var(--text-muted)'}; font-weight: ${isMin ? '700' : '500'};">
+              <span style="color: ${isMin ? 'var(--text-main)' : 'var(--text-muted)'}; font-weight: ${isMin ? '700' : '500'};">
                 ${isMin ? '★ ' : ''}C${d.cluster_id}: ${clName.slice(0, 24)}
               </span>
               <span style="color: ${color}; font-weight: 700;">d = ${d.distance.toFixed(2)}</span>
@@ -1085,7 +1134,6 @@
       const p = state.results.cluster_profiles.find(cp => cp.cluster_id === clId);
       if (p) return p.name;
     }
-    // Dynamic fallback name based on cluster profile means if available
     return `Cluster ${clId} Partition (${distance.toUpperCase()})`;
   }
 
@@ -1116,9 +1164,8 @@
 
     listContainer.innerHTML = top3.map((item, idx) => {
       const c = item.country;
-      const clColor = PALETTE[c.cluster % PALETTE.length];
       return `
-        <div style="display: flex; justify-content: space-between; align-items: center; background: rgba(255,255,255,0.03); padding: 0.4rem 0.6rem; border-radius: var(--radius-sm); border: 1px solid var(--border-card);">
+        <div style="display: flex; justify-content: space-between; align-items: center; background: var(--bg-card); padding: 0.4rem 0.6rem; border-radius: var(--radius-sm); border: 1px solid var(--border-card);">
           <div style="display: flex; align-items: center; gap: 0.5rem;">
             <span style="font-size: 0.75rem; color: var(--amber-accent); font-weight: 700;">#${idx + 1}</span>
             <span class="country-pill" data-drawer-iso="${c.country_code}" style="cursor: pointer;">
@@ -1152,7 +1199,6 @@
     if (backdrop) backdrop.addEventListener('click', closeCountryDrawer);
     if (closeBtn) closeBtn.addEventListener('click', closeCountryDrawer);
 
-    // Escape key to close
     document.addEventListener('keydown', e => {
       if (e.key === 'Escape') closeCountryDrawer();
     });
@@ -1193,9 +1239,9 @@
       return `
         <div style="margin-bottom: 0.85rem;">
           <div style="display: flex; justify-content: space-between; font-size: 0.82rem; margin-bottom: 0.25rem;">
-            <span style="color: #cbd5e1; font-weight: 500;">${cfg.label}</span>
+            <span style="color: var(--text-muted); font-weight: 500;">${cfg.label}</span>
             <span>
-              <strong style="color: #ffffff;">${val !== undefined ? val.toFixed(1) + cfg.unit : 'N/A'}</strong>
+              <strong style="color: var(--text-main);">${val !== undefined ? val.toFixed(1) + cfg.unit : 'N/A'}</strong>
               <small style="color: ${isHigher ? 'var(--rose-accent)' : 'var(--cyan-accent)'}; margin-left: 4px;">
                 (${isHigher ? '+' : ''}${diffStr}${cfg.unit} vs global)
               </small>
@@ -1204,7 +1250,7 @@
           <div class="bar-track" style="position: relative; height: 8px;">
             <div class="bar-fill" style="width: ${pct}%; background: ${clColor};"></div>
             <!-- Global Average Marker -->
-            <div style="position: absolute; left: ${meanPct}%; top: -2px; width: 2px; height: 12px; background: #ffffff; box-shadow: 0 0 4px #ffffff;" title="Global Average: ${gMean.toFixed(1)}${cfg.unit}"></div>
+            <div style="position: absolute; left: ${meanPct}%; top: -2px; width: 2px; height: 12px; background: #0f172a; box-shadow: 0 0 3px rgba(0,0,0,0.4);" title="Global Average: ${gMean.toFixed(1)}${cfg.unit}"></div>
           </div>
         </div>
       `;
@@ -1215,9 +1261,9 @@
         <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.5rem;">
           <div>
             <div style="font-size: 0.8rem; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.05em;">Sovereign State Audit</div>
-            <h2 style="font-size: 1.6rem; color: #ffffff; font-family: var(--font-heading); margin-top: 0.2rem;">${c.country_name}</h2>
+            <h2 style="font-size: 1.6rem; color: var(--text-main); font-family: var(--font-heading); margin-top: 0.2rem;">${c.country_name}</h2>
           </div>
-          <span style="font-size: 1.1rem; padding: 0.2rem 0.6rem; border-radius: 6px; background: rgba(255,255,255,0.08); font-weight: 700;">${c.country_code}</span>
+          <span style="font-size: 1.1rem; padding: 0.2rem 0.6rem; border-radius: 6px; background: rgba(99, 102, 241, 0.1); color: var(--indigo-accent); font-weight: 700;">${c.country_code}</span>
         </div>
 
         <div style="display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; margin-top: 0.5rem;">
@@ -1252,14 +1298,14 @@
       </div>
 
       ${c.is_borderline ? `
-        <div style="background: rgba(251, 191, 36, 0.1); border-left: 3px solid var(--amber-accent); padding: 0.75rem 1rem; border-radius: 4px; margin-bottom: 1.5rem; font-size: 0.82rem; color: #fde68a;">
+        <div style="background: rgba(245, 158, 11, 0.1); border-left: 3px solid var(--amber-accent); padding: 0.75rem 1rem; border-radius: 4px; margin-bottom: 1.5rem; font-size: 0.82rem; color: #b45309;">
           ⚠️ <strong>Borderline Nation:</strong> Low silhouette score indicates this country lies on the transition boundary between malnutrition macro-clusters.
         </div>
       ` : ''}
 
       <!-- Transfer to Simulator Action CTA -->
       <div style="margin-bottom: 1.5rem;">
-        <button id="drawerLoadSimulatorBtn" class="btn-action" style="width: 100%; justify-content: center; padding: 0.75rem; background: rgba(6, 182, 212, 0.15); border-color: rgba(6, 182, 212, 0.4); color: var(--cyan-accent); font-size: 0.9rem;">
+        <button id="drawerLoadSimulatorBtn" class="btn-action" style="width: 100%; justify-content: center; padding: 0.75rem; font-size: 0.9rem;">
           ⚡ Load ${c.country_name}'s Indicators into Simulator
         </button>
       </div>
@@ -1267,8 +1313,8 @@
       <!-- Indicator Breakdown vs Global Mean -->
       <div>
         <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 0.75rem;">
-          <h4 style="font-size: 0.95rem; color: #ffffff;">9 Health Indicators vs. Global Baseline</h4>
-          <span style="font-size: 0.72rem; color: var(--text-dim);">White tick = Global Mean</span>
+          <h4 style="font-size: 0.95rem; color: var(--text-main);">9 Health Indicators vs. Global Baseline</h4>
+          <span style="font-size: 0.72rem; color: var(--text-dim);">Dark tick = Global Mean</span>
         </div>
         <div>
           ${indicatorBarsHtml}
@@ -1280,7 +1326,6 @@
     const loadBtn = document.getElementById('drawerLoadSimulatorBtn');
     if (loadBtn) {
       loadBtn.addEventListener('click', () => {
-        // Copy real indicators into simulated values
         for (const [k, v] of Object.entries(c.indicators)) {
           state.simulatedValues[k] = v;
           const slider = document.getElementById(`slider_${k}`);
@@ -1325,6 +1370,7 @@
     const container = document.getElementById('dendrogramSvg');
     if (!container) return;
 
+    const colors = getThemeColors();
     const ddata = state.results.dendrogram_data;
     if (!ddata || !ddata.icoord) {
       container.innerHTML = '<p style="color: var(--text-muted); text-align: center;">Dendrogram data not available.</p>';
@@ -1358,11 +1404,12 @@
       const ys = ddata.dcoord[i];
       const cCode = ddata.color_list[i] || '#64748b';
       
+      const strokeColor = cCode === 'C0' ? (colors.isDark ? '#64748b' : '#94a3b8') : (cCode === 'C1' ? 'var(--cyan-accent)' : (cCode === 'C2' ? 'var(--rose-accent)' : 'var(--emerald-accent)'));
       const pts = `${xScale(xs[0])},${yScale(ys[0])} ${xScale(xs[1])},${yScale(ys[1])} ${xScale(xs[2])},${yScale(ys[2])} ${xScale(xs[3])},${yScale(ys[3])}`;
-      svg += `<polyline fill="none" stroke="${cCode === 'C0' ? '#64748b' : (cCode === 'C1' ? 'var(--cyan-accent)' : (cCode === 'C2' ? 'var(--rose-accent)' : 'var(--emerald-accent)'))}" stroke-width="1.3" points="${pts}"/>`;
+      svg += `<polyline fill="none" stroke="${strokeColor}" stroke-width="1.3" points="${pts}"/>`;
     }
 
-    svg += `<text x="${margin.left - 10}" y="${margin.top - 8}" fill="#94a3b8" font-size="10" text-anchor="start">Linkage Merge Distance</text>`;
+    svg += `<text x="${margin.left - 10}" y="${margin.top - 8}" fill="${colors.axisText}" font-size="10" text-anchor="start">Linkage Merge Distance</text>`;
     svg += `</svg>`;
     container.innerHTML = svg;
   }
@@ -1398,22 +1445,18 @@
     grid.innerHTML = profiles.map(p => {
       const color = PALETTE[p.cluster_id % PALETTE.length];
       
-      // Typical countries pills (clickable to open drawer)
       const typicalPills = p.typical_countries.map(tc => `
         <span class="country-pill" data-drawer-iso="${tc.country_code}" title="Click to view ${tc.country_name} in detail inspector">
           ${tc.country_name} (${tc.country_code})
         </span>
       `).join('');
 
-      // Top regions
       const regionEntries = Object.entries(p.region_mix).sort((a,b) => b[1]-a[1]).slice(0, 3);
       const regionStr = regionEntries.map(([r, c]) => `${r} (${c})`).join(', ');
 
-      // Income mix
       const incomeEntries = Object.entries(p.income_mix).sort((a,b) => b[1]-a[1]).slice(0, 2);
       const incomeStr = incomeEntries.map(([inc, c]) => `${inc} (${c})`).join(', ');
 
-      // Key indicators
       const barList = [
         { name: 'Child Stunting', val: p.raw_means.stunting, z: p.z_means.stunting, max: 45, unit: '%' },
         { name: 'Child Wasting', val: p.raw_means.wasting, z: p.z_means.wasting, max: 15, unit: '%' },
@@ -1429,7 +1472,7 @@
           <div class="indicator-bar-item">
             <div class="bar-meta">
               <span class="bar-name">${b.name}</span>
-              <span class="bar-value">${b.val !== undefined ? b.val.toFixed(1) + b.unit : 'N/A'} <small style="color: #64748b;">(Z: ${b.z > 0 ? '+' : ''}${b.z.toFixed(2)})</small></span>
+              <span class="bar-value">${b.val !== undefined ? b.val.toFixed(1) + b.unit : 'N/A'} <small style="color: var(--text-dim);">(Z: ${b.z > 0 ? '+' : ''}${b.z.toFixed(2)})</small></span>
             </div>
             <div class="bar-track">
               <div class="bar-fill" style="width: ${pct}%; background: ${barColor};"></div>
@@ -1455,7 +1498,7 @@
           </div>
           <div>
             <div style="font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-dim); margin-bottom: 0.25rem;">Context Metrics</div>
-            <div style="font-size: 0.85rem; color: #cbd5e1; margin-bottom: 0.2rem;"><strong>Median GDP:</strong> ${p.median_gdp_per_capita ? '$' + p.median_gdp_per_capita.toLocaleString() : 'N/A'}</div>
+            <div style="font-size: 0.85rem; color: var(--text-main); margin-bottom: 0.2rem;"><strong>Median GDP:</strong> ${p.median_gdp_per_capita ? '$' + p.median_gdp_per_capita.toLocaleString() : 'N/A'}</div>
             <div style="font-size: 0.82rem; color: var(--text-muted); margin-bottom: 0.2rem;"><strong>Dominant Regions:</strong> ${regionStr}</div>
             <div style="font-size: 0.82rem; color: var(--text-muted); margin-bottom: 0.6rem;"><strong>Income Groups:</strong> ${incomeStr}</div>
             <div style="font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-dim);">Representative Nations (Centroid Neighbors)</div>
@@ -1467,7 +1510,6 @@
       `;
     }).join('');
 
-    // Attach click listeners to typical country pills
     grid.querySelectorAll('[data-drawer-iso]').forEach(pill => {
       pill.addEventListener('click', e => {
         e.stopPropagation();
@@ -1483,6 +1525,7 @@
     const container = document.getElementById('profileHeatmapSvg');
     if (!container) return;
 
+    const colors = getThemeColors();
     const profiles = state.results.cluster_profiles;
     const feats = state.results.features;
     const nC = profiles.length;
@@ -1501,34 +1544,34 @@
     // Header labels (features)
     for (let j = 0; j < nF; j++) {
       const f = feats[j];
-      svg += `<text x="${margin.left + j * cellW + cellW / 2}" y="${margin.top - 12}" fill="#94a3b8" font-size="10" font-weight="600" text-anchor="middle">${f.replace(/_/g, ' ')}</text>`;
+      svg += `<text x="${margin.left + j * cellW + cellW / 2}" y="${margin.top - 12}" fill="${colors.axisText}" font-size="10" font-weight="600" text-anchor="middle">${f.replace(/_/g, ' ')}</text>`;
     }
 
     // Rows (Clusters)
     for (let i = 0; i < nC; i++) {
       const p = profiles[i];
-      svg += `<text x="${margin.left - 12}" y="${margin.top + i * cellH + cellH / 2 + 4}" fill="#f8fafc" font-size="11" font-weight="700" text-anchor="end">C${p.cluster_id}: ${p.name.slice(0, 18)}</text>`;
+      svg += `<text x="${margin.left - 12}" y="${margin.top + i * cellH + cellH / 2 + 4}" fill="${colors.mainText}" font-size="11" font-weight="700" text-anchor="end">C${p.cluster_id}: ${p.name.slice(0, 18)}</text>`;
 
       for (let j = 0; j < nF; j++) {
         const f = feats[j];
         const z = p.z_means[f] !== undefined ? p.z_means[f] : 0;
         
-        let fillColor = '#1e293b';
+        let fillColor = colors.heatmapBase;
         if (z > 0) {
           const t = Math.min(1, z / 1.5);
-          fillColor = interpolateColor('#1e293b', '#f43f5e', t);
+          fillColor = interpolateColor(colors.heatmapBase, '#e11d48', t);
         } else {
           const t = Math.min(1, Math.abs(z) / 1.5);
-          fillColor = interpolateColor('#1e293b', '#06b6d4', t);
+          fillColor = interpolateColor(colors.heatmapBase, '#0284c7', t);
         }
 
         const x = margin.left + j * cellW;
         const y = margin.top + i * cellH;
 
-        svg += `<rect x="${x}" y="${y}" width="${cellW - 2}" height="${cellH - 2}" rx="4" fill="${fillColor}" stroke="rgba(255,255,255,0.06)" stroke-width="1">
+        svg += `<rect x="${x}" y="${y}" width="${cellW - 2}" height="${cellH - 2}" rx="4" fill="${fillColor}" stroke="${colors.cardBorder}" stroke-width="1">
           <title>${p.name} - ${f}: Z = ${z > 0 ? '+' : ''}${z.toFixed(2)}</title>
         </rect>`;
-        svg += `<text x="${x + cellW / 2}" y="${y + cellH / 2 + 4}" fill="${Math.abs(z) > 0.6 ? '#ffffff' : '#cbd5e1'}" font-size="10.5" font-weight="700" text-anchor="middle">${z > 0 ? '+' : ''}${z.toFixed(2)}</text>`;
+        svg += `<text x="${x + cellW / 2}" y="${y + cellH / 2 + 4}" fill="${Math.abs(z) > 0.6 ? '#ffffff' : colors.labelText}" font-size="10.5" font-weight="700" text-anchor="middle">${z > 0 ? '+' : ''}${z.toFixed(2)}</text>`;
       }
     }
 
@@ -1551,7 +1594,7 @@
         <td><strong>${c.country_name}</strong> (${c.country_code})</td>
         <td>${c.region}</td>
         <td>${c.income_group || 'N/A'}</td>
-        <td><span class="pill-status" style="background: rgba(251, 191, 36, 0.15); color: #fbbf24; border: 1px solid rgba(251, 191, 36, 0.3);">C${c.cluster}: ${c.cluster_name}</span></td>
+        <td><span class="pill-status" style="background: rgba(245, 158, 11, 0.12); color: #d97706; border: 1px solid rgba(245, 158, 11, 0.3);">C${c.cluster}: ${c.cluster_name}</span></td>
         <td><strong style="color: ${c.silhouette < 0 ? 'var(--rose-accent)' : 'var(--amber-accent)'};">${c.silhouette.toFixed(4)}</strong></td>
         <td>${c.indicators.stunting || 'N/A'}%</td>
         <td>${c.indicators.wasting || 'N/A'}%</td>
