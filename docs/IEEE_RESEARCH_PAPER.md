@@ -381,3 +381,4 @@ Future research will extend this framework to longitudinal time-series clusterin
 [22] K. Pearson, "On lines and planes of closest fit to systems of points in space," *Philosophical Magazine*, vol. 2, no. 11, pp. 559–572, 1901.  
 [23] UNICEF, WHO, World Bank Group, *Levels and Trends in Child Malnutrition: Key Findings of the 2023 Edition*, New York: UNICEF, 2023.  
 [24] NCD Risk Factor Collaboration (NCD-RisC), "Worldwide trends in body-mass index, underweight, overweight, and obesity from 1975 to 2016," *The Lancet*, vol. 390, no. 10113, pp. 2627–2642, 2017.
+

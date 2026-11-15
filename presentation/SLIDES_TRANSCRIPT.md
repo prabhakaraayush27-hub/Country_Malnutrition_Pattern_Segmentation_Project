@@ -160,3 +160,4 @@
 
 ### Q4: How does your interactive dashboard perform live predictions without a backend server?
 > **Answer:** *"During the offline training run, `run_pipeline.py` exports the exact `StandardScaler` mean ($\mu$) and scale ($\sigma$) parameters, along with the 9-dimensional centroid vectors for all 12 models, into `results.js`. When a user drags a slider in the browser, client-side JavaScript standardizes the 9 inputs and computes Euclidean/Manhattan distance to each centroid in less than 1 millisecond. It then multiplies the standardized vector by the PCA loading matrix to calculate $(x_{pca}, y_{pca})$, updating the live pulsing marker on the SVG biplot instantaneously."*
+
