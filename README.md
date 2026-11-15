@@ -20,9 +20,9 @@
 
 | Resource | Description | Accessible Link |
 | :--- | :--- | :--- |
-| **GitHub Repository** | Complete reproducible source code, backend pipeline, frontend dashboard, and tests | [GitHub Repository Link](https://github.com/Abhiudhay-Singh/malnutrition-clustering-segmentation) |
+| **GitHub Repository** | Complete reproducible source code, backend pipeline, frontend dashboard, and tests | [GitHub Repository Link](https://github.com/prabhakaraayush27-hub/Country_Malnutrition_Pattern_Segmentation_Project) |
 | **Real World Bank Dataset** | UNICEF/WHO/World Bank Joint Malnutrition Estimates (166 Sovereign Nations × 9 Indicators) | [World Bank Open Data API](https://data.worldbank.org/indicator) • [Local Raw CSV](backend/data/raw/nutrition_indicators.csv) |
-| **Live Interactive Deployment** | Production dashboard with Live What-If Simulator, PCA Explorer, and Theme Toggle | [Live Dashboard (GitHub Pages)](https://abhiudhay-singh.github.io/malnutrition-clustering-segmentation/) • [Local Live Server](http://localhost:8080/index.html) |
+| **Live Interactive Deployment** | Production dashboard with Live What-If Simulator, PCA Explorer, and Theme Toggle | [Live Dashboard (GitHub Pages)](https://prabhakaraayush27-hub.github.io/Country_Malnutrition_Pattern_Segmentation_Project/) • [Local Live Server](http://localhost:8080/index.html) |
 | **PowerPoint Presentation (PPT)** | 16:9 Widescreen Presentation (13 slides, embedded figures, project links slide) | [Malnutrition_Clustering_Presentation.pptx](presentation/Malnutrition_Clustering_Presentation.pptx) |
 | **Presentation Speaker Transcript** | Slide-by-slide speaker notes, 8–10 minute timing guide, and Viva/Defense Q&A | [SLIDES_TRANSCRIPT.md](presentation/SLIDES_TRANSCRIPT.md) |
 | **IEEE Research Paper (Markdown)** | Mandatory Research Paper formatted to IEEE standards (Abstract, Math, Tables, 24 Citations) | [IEEE_RESEARCH_PAPER.md](docs/IEEE_RESEARCH_PAPER.md) |
@@ -142,8 +142,8 @@ Python 3.10 or higher is required.
 
 ```powershell
 # Clone repository
-git clone https://github.com/Abhiudhay-Singh/malnutrition-clustering-segmentation.git
-cd "Clustering project"
+git clone https://github.com/prabhakaraayush27-hub/Country_Malnutrition_Pattern_Segmentation_Project.git
+cd "Country_Malnutrition_Pattern_Segmentation_Project"
 
 # Install backend dependencies
 python -m pip install -r backend/requirements.txt

@@ -930,7 +930,7 @@ def create_deck():
     p = tf13_1.add_paragraph()
     p.space_before = Pt(4)
     r = p.add_run()
-    r.text = "🔗 GitHub Link: https://github.com/Abhiudhay-Singh/malnutrition-clustering-segmentation"
+    r.text = "🔗 GitHub Link: https://github.com/prabhakaraayush27-hub/Country_Malnutrition_Pattern_Segmentation_Project"
     r.font.bold = True
     r.font.size = Pt(9)
     r.font.color.rgb = C_INDIGO
@@ -980,7 +980,7 @@ def create_deck():
     p = tf13_3.add_paragraph()
     p.space_before = Pt(4)
     r = p.add_run()
-    r.text = "🔗 Live Deployment: https://abhiudhay-singh.github.io/malnutrition-clustering-segmentation/\n🖥️ Local Live Server: http://localhost:8080/index.html"
+    r.text = "🔗 Live Deployment: https://prabhakaraayush27-hub.github.io/Country_Malnutrition_Pattern_Segmentation_Project/\n🖥️ Local Live Server: http://localhost:8080/index.html"
     r.font.bold = True
     r.font.size = Pt(9)
     r.font.color.rgb = C_AMBER

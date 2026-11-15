@@ -135,11 +135,11 @@
 ### Slide 13: Project Links & Deliverables (Mandatory Final Slide)
 > *"In accordance with the submission guidelines, this final slide provides fully functional hyperlinks to all project resources:*  
 > *• **GitHub Repository**: Complete source code, clean folder structure, reproducible pipeline, and comprehensive README:  
-> `https://github.com/Abhiudhay-Singh/malnutrition-clustering-segmentation`*  
+> `https://github.com/prabhakaraayush27-hub/Country_Malnutrition_Pattern_Segmentation_Project`*  
 > *• **Real World Bank Dataset**: Verified API endpoints and raw CSV files:  
 > `https://data.worldbank.org/indicator` & `backend/data/raw/nutrition_indicators.csv`*  
 > *• **Live Web Deployment**: Zero-build interactive dashboard with live simulator and theme toggle:  
-> `https://abhiudhay-singh.github.io/malnutrition-clustering-segmentation/` (and local live server at port 8080)*  
+> `https://prabhakaraayush27-hub.github.io/Country_Malnutrition_Pattern_Segmentation_Project/` (and local live server at port 8080)*  
 > *• **Academic Deliverables**:  
 > - Mandatory **IEEE Research Paper** (`docs/IEEE_RESEARCH_PAPER.md` & `docs/IEEE_RESEARCH_PAPER.tex`) for the extended 24 November deadline.  
 > - Full Technical Report (`docs/REPORT.md`).  
