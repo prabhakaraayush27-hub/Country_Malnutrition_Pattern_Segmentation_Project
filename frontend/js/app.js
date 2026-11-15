@@ -350,6 +350,9 @@
     // Attach real-time input listeners
     container.querySelectorAll('.sim-slider').forEach(slider => {
       slider.addEventListener('input', e => {
+        // Stop auto-simulation immediately if user manually interacts with any slider
+        stopAutoSimulation();
+
         const key = slider.getAttribute('data-key');
         const unit = slider.getAttribute('data-unit');
         const val = parseFloat(slider.value);
@@ -418,6 +421,9 @@
 
   function loadTypologyPreset(presetKey) {
     stopAutoSimulation();
+    autoSimProgress.stageIdx = 0;
+    autoSimProgress.t = 0;
+    autoSimProgress.isFinished = false;
     let vals = {};
     const mean = state.results.scaler ? state.results.scaler.mean : {};
 
@@ -464,7 +470,21 @@
     updateSimulator();
   }
 
-  // Continuous presentation simulation: travels smoothly through stages
+  // Presentation transition stages metadata
+  const TRANSITION_STAGES = [
+    { title: 'Stage 1/4: Acute Child Undernutrition', desc: 'Niger / Chad Archetype', values: TYPOLOGY_PRESETS.sub_saharan.values },
+    { title: 'Stage 2/4: Double Burden of Malnutrition', desc: 'India / Egypt Archetype', values: TYPOLOGY_PRESETS.double_burden.values },
+    { title: 'Stage 3/4: High Overweight & Adult Obesity', desc: 'USA / UK Archetype', values: TYPOLOGY_PRESETS.high_obesity.values },
+    { title: 'Stage 4/4: Low Malnutrition / Balance', desc: 'Japan / Norway Archetype', values: TYPOLOGY_PRESETS.low_burden.values }
+  ];
+
+  let autoSimProgress = {
+    stageIdx: 0,
+    t: 0,
+    isFinished: false
+  };
+
+  // Structured presentation simulation: smoothly travels through 4 stages and automatically finishes
   function startAutoSimulation() {
     state.isAutoSimulating = true;
     const btn = document.getElementById('autoSimulateBtn');
@@ -474,31 +494,46 @@
     if (icon) icon.textContent = '⏸';
     if (text) text.textContent = 'Pause Transition Simulation';
 
-    const sequence = [
-      TYPOLOGY_PRESETS.sub_saharan.values,
-      TYPOLOGY_PRESETS.double_burden.values,
-      TYPOLOGY_PRESETS.high_obesity.values,
-      TYPOLOGY_PRESETS.low_burden.values
-    ];
+    // If already finished previously, restart from Stage 1
+    if (autoSimProgress.isFinished || autoSimProgress.stageIdx >= TRANSITION_STAGES.length - 1) {
+      autoSimProgress.stageIdx = 0;
+      autoSimProgress.t = 0;
+      autoSimProgress.isFinished = false;
+    }
 
-    let currentIdx = 0;
-    let t = 0;
-    const steps = 60; // 60 interpolation frames per transition (~2.5s)
+    const stepsPerStage = 65; // ~2.9 seconds per transition stage
 
     state.autoSimTimer = setInterval(() => {
-      t += 1 / steps;
-      if (t >= 1) {
-        t = 0;
-        currentIdx = (currentIdx + 1) % sequence.length;
+      autoSimProgress.t += 1 / stepsPerStage;
+
+      // Stage transition check
+      if (autoSimProgress.t >= 1) {
+        autoSimProgress.t = 0;
+        autoSimProgress.stageIdx++;
+
+        // Once all 4 stages are completed, finish and auto-stop!
+        if (autoSimProgress.stageIdx >= TRANSITION_STAGES.length - 1) {
+          const finalStage = TRANSITION_STAGES[TRANSITION_STAGES.length - 1];
+          applySimulatedValues(finalStage.values);
+
+          const badge = document.getElementById('countryLoadedBadge');
+          if (badge) {
+            badge.textContent = `✅ Complete: Demonstrated All 4 Transition Stages!`;
+            badge.style.color = 'var(--emerald-accent)';
+          }
+
+          stopAutoSimulation(true);
+          return;
+        }
       }
 
-      const fromVals = sequence[currentIdx];
-      const toVals = sequence[(currentIdx + 1) % sequence.length];
+      const fromVals = TRANSITION_STAGES[autoSimProgress.stageIdx].values;
+      const toVals = TRANSITION_STAGES[autoSimProgress.stageIdx + 1].values;
       const mean = state.results.scaler.mean;
       const scale = state.results.scaler.scale;
 
       // Smooth cosine easing
-      const ease = 0.5 - 0.5 * Math.cos(t * Math.PI);
+      const ease = 0.5 - 0.5 * Math.cos(autoSimProgress.t * Math.PI);
 
       INDICATOR_CONFIGS.forEach(cfg => {
         const k = cfg.key;
@@ -518,9 +553,13 @@
         }
       });
 
+      const currentStage = TRANSITION_STAGES[autoSimProgress.stageIdx];
+      const nextStage = TRANSITION_STAGES[autoSimProgress.stageIdx + 1];
+      const overallPct = Math.min(99, Math.round(((autoSimProgress.stageIdx + autoSimProgress.t) / (TRANSITION_STAGES.length - 1)) * 100));
+
       const badge = document.getElementById('countryLoadedBadge');
       if (badge) {
-        badge.textContent = `▶ Simulating Transition (${Math.round((currentIdx + t) * 25)}% Cycle)`;
+        badge.textContent = `▶ ${currentStage.title} → ${nextStage.desc} (${overallPct}%)`;
         badge.style.color = 'var(--amber-accent)';
       }
 
@@ -528,18 +567,53 @@
     }, 45);
   }
 
-  function stopAutoSimulation() {
-    if (!state.isAutoSimulating) return;
+  function applySimulatedValues(vals) {
+    const mean = state.results.scaler ? state.results.scaler.mean : {};
+    const scale = state.results.scaler ? state.results.scaler.scale : {};
+
+    for (const [k, v] of Object.entries(vals)) {
+      state.simulatedValues[k] = v;
+      const slider = document.getElementById(`slider_${k}`);
+      if (slider) slider.value = v;
+      const valLabel = document.getElementById(`val_${k}`);
+      if (valLabel) {
+        const cfg = INDICATOR_CONFIGS.find(c => c.key === k);
+        valLabel.textContent = `${v.toFixed(1)}${cfg ? cfg.unit : '%'}`;
+      }
+
+      const m = mean[k] || v;
+      const s = scale[k] || 1;
+      const z = (v - m) / s;
+      const zBadge = document.getElementById(`zscore_${k}`);
+      if (zBadge) {
+        zBadge.textContent = `${z >= 0 ? '+' : ''}${z.toFixed(1)}σ`;
+        zBadge.className = `zscore-pill ${z > 0.8 ? 'high' : (z < -0.8 ? 'low' : 'neutral')}`;
+      }
+    }
+    updateSimulator();
+  }
+
+  function stopAutoSimulation(isComplete = false) {
+    if (!state.isAutoSimulating && !isComplete) return;
     state.isAutoSimulating = false;
     clearInterval(state.autoSimTimer);
     state.autoSimTimer = null;
+    autoSimProgress.isFinished = isComplete;
 
     const btn = document.getElementById('autoSimulateBtn');
     const icon = document.getElementById('autoSimulateIcon');
     const text = document.getElementById('autoSimulateText');
     if (btn) btn.style.background = 'linear-gradient(135deg, #4f46e5, #0284c7)';
-    if (icon) icon.textContent = '▶';
-    if (text) text.textContent = 'Auto-Run Transition Simulation';
+    if (icon) icon.textContent = isComplete ? '↺' : '▶';
+    if (text) {
+      if (isComplete) {
+        text.textContent = 'Replay Transition Simulation';
+      } else if (autoSimProgress.stageIdx > 0 || autoSimProgress.t > 0) {
+        text.textContent = 'Resume Transition Simulation';
+      } else {
+        text.textContent = 'Auto-Run Transition Simulation';
+      }
+    }
   }
 
   // ============================================================================
