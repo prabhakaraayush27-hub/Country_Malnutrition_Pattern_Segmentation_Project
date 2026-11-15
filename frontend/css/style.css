@@ -1316,3 +1316,206 @@ footer {
   .kpi-grid { grid-template-columns: repeat(2, 1fr); }
   .cluster-cards-grid { grid-template-columns: 1fr; }
 }
+
+/* ==============================================================================
+   SIMULATION STUDIO & 3-STEP FLOW EXTENSIONS
+   ============================================================================== */
+.process-flow-strip {
+  width: 100%;
+}
+
+.flow-cards-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1.25rem;
+}
+
+.flow-step-card {
+  padding: 1.25rem 1.4rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  border-radius: var(--radius-md);
+  transition: transform 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.flow-step-card:hover {
+  transform: translateY(-2px);
+  border-color: var(--indigo-accent);
+  box-shadow: 0 8px 25px rgba(99, 102, 241, 0.12);
+}
+
+.flow-step-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.6rem;
+}
+
+.flow-step-badge {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 0.2rem 0.55rem;
+  border-radius: 999px;
+}
+
+.flow-step-badge.step-1 {
+  background: rgba(225, 29, 72, 0.1);
+  color: var(--rose-accent);
+  border: 1px solid rgba(225, 29, 72, 0.25);
+}
+
+.flow-step-badge.step-2 {
+  background: rgba(79, 70, 229, 0.1);
+  color: var(--indigo-accent);
+  border: 1px solid rgba(79, 70, 229, 0.25);
+}
+
+.flow-step-badge.step-3 {
+  background: rgba(5, 150, 105, 0.1);
+  color: var(--emerald-accent);
+  border: 1px solid rgba(5, 150, 105, 0.25);
+}
+
+.flow-step-icon {
+  font-size: 1.15rem;
+}
+
+.flow-step-title {
+  font-family: var(--font-heading);
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--text-main);
+  margin-bottom: 0.45rem;
+}
+
+.flow-step-desc {
+  font-size: 0.83rem;
+  color: var(--text-muted);
+  line-height: 1.55;
+  margin-bottom: 0.75rem;
+}
+
+.flow-step-footer {
+  border-top: 1px solid var(--border-card);
+  padding-top: 0.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.flow-highlight {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-dim);
+}
+
+/* Studio Workspace Layout */
+.studio-workspace {
+  display: grid;
+  grid-template-columns: 1.15fr 0.85fr;
+  gap: 1.5rem;
+  align-items: flex-start;
+}
+
+.studio-card {
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-glass);
+  background: var(--bg-card);
+  border: 1px solid var(--border-card);
+}
+
+/* Z-Score Badge */
+.zscore-pill {
+  font-size: 0.68rem;
+  font-weight: 700;
+  padding: 0.15rem 0.45rem;
+  border-radius: 4px;
+  letter-spacing: 0.02em;
+}
+
+.zscore-pill.high {
+  background: rgba(225, 29, 72, 0.12);
+  color: var(--rose-accent);
+  border: 1px solid rgba(225, 29, 72, 0.25);
+}
+
+.zscore-pill.low {
+  background: rgba(2, 132, 199, 0.12);
+  color: var(--cyan-accent);
+  border: 1px solid rgba(2, 132, 199, 0.25);
+}
+
+.zscore-pill.neutral {
+  background: rgba(100, 116, 139, 0.1);
+  color: var(--text-dim);
+  border: 1px solid rgba(100, 116, 139, 0.2);
+}
+
+/* Goal Prescription Card */
+.goal-prescription-card {
+  background: rgba(248, 250, 252, 0.85);
+  border: 1px solid var(--border-card);
+  border-radius: var(--radius-sm);
+  padding: 0.9rem 1.1rem;
+  transition: all 0.3s ease;
+}
+
+body.dark-theme .goal-prescription-card {
+  background: rgba(30, 41, 59, 0.5);
+  border-color: rgba(255, 255, 255, 0.07);
+}
+
+.goal-header {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  margin-bottom: 0.35rem;
+}
+
+.goal-title {
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--emerald-accent);
+}
+
+.goal-prescription-body {
+  font-size: 0.84rem;
+  color: var(--text-main);
+  line-height: 1.5;
+}
+
+/* Nearest Real Country Item */
+.nearest-country-chip {
+  background: var(--bg-card-hover);
+  border: 1px solid var(--border-card);
+  border-radius: var(--radius-sm);
+  padding: 0.5rem 0.65rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  cursor: pointer;
+  transition: transform 0.15s ease, border-color 0.15s ease;
+}
+
+.nearest-country-chip:hover {
+  transform: translateY(-2px);
+  border-color: var(--indigo-accent);
+}
+
+/* Responsive adjustments */
+@media (max-width: 1100px) {
+  .studio-workspace {
+    grid-template-columns: 1fr;
+  }
+  .flow-cards-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
