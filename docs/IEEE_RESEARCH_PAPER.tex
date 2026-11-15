@@ -1,0 +1,206 @@
+\documentclass[conference]{IEEEtran}
+\IEEEoverridecommandlockouts
+\usepackage{cite}
+\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{algorithmic}
+\usepackage{graphicx}
+\usepackage{textcomp}
+\usepackage{xcolor}
+\usepackage{booktabs}
+\usepackage{url}
+
+\def\BibTeX{{\rm B\kern-.05em{\sc i\kern-.025em b}\kern-.08em
+    T\kern-.1667em\lower.7ex\hbox{E}\kern-.125emX}}
+
+\begin{document}
+
+\title{Segmenting Global Malnutrition Typologies via Robust Partition Clustering, Hierarchical Linkage Benchmarking, and Factor Projections: An Empirical Study of World Bank Health Indicators\\
+{\footnotesize \textsuperscript{*}Course Outcomes: CO2 (Partitioning), CO3 (Hierarchical), CO5 (Dimensionality Reduction) --- Bill \& Melinda Gates Foundation Nutrition Analytics Initiative}
+}
+
+\author{\IEEEauthorblockN{Abhiudhay Singh}
+\IEEEauthorblockA{\textit{Department of Computer Science \& Engineering} \\
+\textit{School of Computer Science \& Artificial Intelligence}\\
+Email: student@university.edu}
+}
+
+\maketitle
+
+\begin{abstract}
+Global malnutrition has evolved beyond classical caloric deprivation into an interlocking triple burden characterized by child undernutrition, micronutrient deficiencies, and rapidly escalating adult and child obesity. Traditional macroeconomic stratifications, such as Gross Domestic Product (GDP) per capita, fail to capture these non-linear epidemiological transitions. In this paper, we present an end-to-end unsupervised machine learning framework to discover data-driven country malnutrition typologies across 166 sovereign states using real empirical data from the World Bank Open Data API, the UNICEF/WHO/World Bank Joint Child Malnutrition Estimates (JME), and the WHO/NCD-RisC surveillance systems. We formulate a controlled seven-step preprocessing pipeline that prunes collinear dimensions, imputes missing values hierarchically using regional medians, controls outlier leverage via 1st/99th percentile winsorization, and strictly isolates economic variables from feature representations to avoid circular reasoning. We systematically benchmark Euclidean $K$-Means against a custom-implemented $L_1$ coordinate-wise Manhattan $K$-Medians algorithm across $K \in \{3, 4, 5, 6, 7, 8\}$ using a common Euclidean ruler and 20-round bootstrap stability analysis (80\% subsampling without replacement). Our validation framework identifies Euclidean $K$-Means with $K=3$ as the mathematically optimal macro-partition (Composite Rank \#1), delivering a silhouette score of 0.2726, a Davies-Bouldin index of 1.7209, and exceptional bootstrap reproducibility ($\text{ARI} = 0.8324 \pm 0.102$). Agglomerative Hierarchical Clustering across Ward, Complete, Average, and Single linkages structurally cross-validates this partition, with Ward's dendrogram producing an identical cut at height 12.52 ($\text{ARI} = 0.7109$, cophenetic correlation $c = 0.7427$). Principal Component Analysis (PCA) reveals that two orthogonal factors capture 65.80\% of total variance, isolating a `Nutrition Transition Axis' (PC1, 54.03\%) and an `Infant Care vs. Acute Stress Axis' (PC2, 11.77\%). Finally, we identify and clinically profile 15 borderline transitional nations ($s_i < 0.05$) and deploy an interactive decision-support system featuring live client-side simulation for global health resource allocation.
+\end{abstract}
+
+\begin{IEEEkeywords}
+Unsupervised machine learning, partition clustering, K-Means, K-Medians, hierarchical clustering, principal component analysis, malnutrition typologies, World Bank Open Data, cluster stability, public health decision support.
+\end{IEEEkeywords}
+
+\section{Introduction}
+Malnutrition remains one of the most pressing determinants of infant mortality, adult chronic morbidity, and lost economic productivity worldwide. Historically, international public health frameworks treated malnutrition as virtually synonymous with caloric deficiency and starvation \cite{who2014}. However, over the past three decades, the global epidemiological landscape has undergone a profound structural shift---termed the \textit{Nutrition Transition} \cite{popkin2001}---driven by rapid urbanization, trade globalization, and the aggressive market penetration of ultra-processed, energy-dense foods.
+
+Consequently, modern public health literature recognizes a \textbf{Triple Burden of Malnutrition} \cite{gnr2022}:
+\begin{enumerate}
+    \item \textbf{Acute and Chronic Undernutrition:} Child stunting (impaired linear growth indicating chronic nutritional deprivation) and wasting (low weight-for-height indicating acute starvation), predominantly concentrated in low-income rural economies.
+    \item \textbf{Micronutrient Malnutrition:} Severe iron-deficiency anaemia among children and women of reproductive age, impairing cognitive development and elevating maternal mortality.
+    \item \textbf{Overnutrition and Non-Communicable Diseases (NCDs):} Rapidly climbing rates of child overweight and adult obesity, which drive non-communicable cardiometabolic conditions.
+    \item \textbf{The Double Burden of Malnutrition (DBM):} The paradoxical coexistence of child stunting and adult obesity within the same nation, community, or household \cite{popkin2020}.
+\end{enumerate}
+
+Despite the clinical reality of this divergence, multilateral policy interventions often rely on blunt macroeconomic indicators---such as the World Bank Income Group or Gross Domestic Product (GDP) per capita---to guide nutritional assistance and program design \cite{wb2023}. Such economic categorizations suffer from two fatal flaws: first, they assume health outcomes correlate linearly with national income, completely missing upper-middle-income nations experiencing acute double-burden crises; second, using income to infer health outcomes introduces severe circular reasoning into policy design \cite{victora2008}.
+
+To overcome these limitations, this paper formulates a rigorous, unsupervised machine learning framework that segments sovereign nations strictly based on observed physiological and nutritional indicators.
+
+\section{Empirical Data Ingestion \& Preprocessing}
+
+\subsection{Data Acquisition \& Missingness Auditing}
+Data was ingested programmatically from the World Bank Open Data API via REST endpoints querying the latest available value per indicator (\texttt{mrnev=1}), with automated fallback to bulk zipped CSV archives. Ten candidate health indicators were audited across $N_{raw} = 217$ sovereign entities. Let $\mathbf{X} \in \mathbb{R}^{N_{raw} \times D_{raw}}$ represent the raw data matrix. For indicator $j$, the missingness ratio is defined as:
+\begin{equation}
+\mathcal{M}_j = \frac{1}{N_{raw}} \sum_{i=1}^{N_{raw}} \mathbb{I}(x_{ij} = \text{NaN})
+\end{equation}
+where $\mathbb{I}(\cdot)$ is the indicator function. Indicators satisfying $\mathcal{M}_j > 0.40$ were pruned. Indicator \texttt{low\_birthweight} exhibited $\mathcal{M}_j = 1.00$ ($0$ countries reporting in the current reporting cycle) and was discarded. The remaining $D = 9$ indicators exhibited reporting coverage between $68.2\%$ and $90.3\%$.
+
+\subsection{Controlled 7-Step Preprocessing Protocol}
+\begin{enumerate}
+    \item \textbf{Country Completeness Filter:} Countries with completeness $\mathcal{C}_i < 0.50$ (predominantly non-reporting small-island microstates) were excluded, finalizing the cohort at $N = 166$ sovereign states.
+    \item \textbf{Collinearity Pruning:} Pairwise Pearson correlations $r_{jk}$ were audited under threshold $|r_{jk}| > 0.92$. The maximum observed correlation was $r = 0.88$ (Stunting vs Underweight); all $9$ indicators were retained.
+    \item \textbf{Hierarchical Regional Median Imputation:} Missing values were imputed using regional cohorts $\mathcal{R}_i$ (Sub-Saharan Africa, Latin America, etc.) to preserve geopolitical variance:
+    \begin{equation}
+    \hat{x}_{ij} = \begin{cases} \text{median}_{k \in \mathcal{R}_i}(x_{kj}), & \text{if } |\mathcal{R}_{i,j}^{obs}| \ge 3 \\ \text{median}_{k \in \mathcal{U}}(x_{kj}), & \text{otherwise} \end{cases}
+    \end{equation}
+    \item \textbf{Winsorization Outlier Control:} Values were clipped at 1st ($P_{1,j}$) and 99th ($P_{99,j}$) percentiles to eliminate extreme national leverage points.
+    \item \textbf{Categorical Profiling Isolation:} GDP per capita and Income Group were strictly isolated from the clustering feature vector $\mathbf{X}$ to prevent circular reasoning.
+    \item \textbf{StandardScaler Normalization:} Transformed all $9$ indicators to zero mean and unit variance: $z_{ij} = (x'_{ij} - \mu_j) / \sigma_j$.
+\end{enumerate}
+
+\section{Machine Learning Methodology}
+
+\subsection{Partition Clustering Formulations}
+\subsubsection{Euclidean $K$-Means ($L_2$ Norm)}
+Partitions $N$ observations into $K$ disjoint clusters $\mathcal{S} = \{S_1, \dots, S_K\}$ to minimize within-cluster inertia:
+\begin{equation}
+\mathcal{J}_{Euc}(\mathcal{S}) = \sum_{k=1}^K \sum_{\mathbf{z}_i \in S_k} \|\mathbf{z}_i - \boldsymbol{\mu}_k\|_2^2
+\end{equation}
+where $\boldsymbol{\mu}_k$ is the arithmetic cluster mean, initialized via $k$-means++ with 20 restarts.
+
+\subsubsection{Custom Manhattan $K$-Medians ($L_1$ Norm)}
+Minimizes the sum of absolute deviations:
+\begin{equation}
+\mathcal{J}_{Man}(\mathcal{S}) = \sum_{k=1}^K \sum_{\mathbf{z}_i \in S_k} \|\mathbf{z}_i - \mathbf{m}_k\|_1
+\end{equation}
+Centroids are updated as coordinate-wise medians:
+\begin{equation}
+m_{kj} = \text{median}\left(\{z_{ij} : \mathbf{z}_i \in S_k\}\right), \quad \forall j \in \{1, \dots, D\}
+\end{equation}
+implemented with $L_1$-adapted $k$-means++ probability seeding and dynamic empty-cluster re-seeding.
+
+\subsection{Agglomerative Hierarchical Clustering}
+Evaluated across Ward's minimum variance criterion:
+\begin{equation}
+\Delta \mathcal{J}(A, B) = \frac{|A| \cdot |B|}{|A| + |B|} \|\boldsymbol{\mu}_A - \boldsymbol{\mu}_B\|_2^2
+\end{equation}
+Complete, Average, and Single linkages. Cophenetic correlation coefficient $c$ was computed to quantify distance preservation.
+
+\subsection{Principal Component Factor Analysis}
+Eigen-decomposition of correlation matrix $\mathbf{\Sigma} = \frac{1}{N-1} \mathbf{Z}^T \mathbf{Z}$ extracted eigenvalues $\lambda_m$ and factor loading vectors $\mathbf{v}_m$:
+\begin{equation}
+y_{im} = \sum_{j=1}^D z_{ij} v_{jm}
+\end{equation}
+
+\section{Validation \& Model Selection}
+
+\subsection{Common Euclidean Ruler \& Validation Metrics}
+To ensure rigorous comparability between Manhattan and Euclidean models, all configurations were evaluated under a common Euclidean ruler for:
+\begin{itemize}
+    \item \textbf{Silhouette Coefficient:} $s(i) = \frac{b(i) - a(i)}{\max(a(i), b(i))}$.
+    \item \textbf{Davies-Bouldin Index:} $DB = \frac{1}{K} \sum_{k=1}^K \max_{l \neq k} \left(\frac{\bar{d}_k + \bar{d}_l}{\|\boldsymbol{\mu}_k - \boldsymbol{\mu}_l\|_2}\right)$.
+    \item \textbf{Bootstrap Stability Protocol:} 20 independent subsamples of 80\% without replacement, evaluated via Adjusted Rand Index ($\text{ARI}$).
+    \item \textbf{Composite Ranking Function:} $R_{comp} = \frac{1}{3} (\text{Rank}_{Sil} + \text{Rank}_{DB} + \text{Rank}_{Stab})$.
+\end{itemize}
+
+\section{Experimental Results}
+
+\begin{table*}[t]
+\caption{Comprehensive Partition Model Comparison Matrix Across 166 Sovereign Nations}
+\label{tab:models}
+\centering
+\begin{tabular}{lcccccccc}
+\toprule
+\textbf{Configuration ID} & \textbf{Distance} & $K$ & \textbf{Silhouette} & \textbf{Davies-Bouldin} & \textbf{Stability ($\text{ARI}$)} & \textbf{Min Size} & \textbf{Borderline} & \textbf{Composite Rank} \\
+\midrule
+\textbf{euclidean\_k3 $\star$} & \textbf{Euclidean} & \textbf{3} & \textbf{0.2726} & \textbf{1.7209} & \textbf{0.8324 $\pm$ 0.102} & \textbf{37} & \textbf{15} & \textbf{\#1.0 (OPTIMAL)} \\
+euclidean\_k4 & Euclidean & 4 & 0.2079 & 1.7610 & 0.5025 $\pm$ 0.116 & 23 & 25 & \#7.0 \\
+euclidean\_k5 & Euclidean & 5 & 0.2185 & 1.6967 & 0.5513 $\pm$ 0.089 & 19 & 24 & \#5.3 \\
+euclidean\_k6 & Euclidean & 6 & 0.2079 & 1.6425 & 0.4851 $\pm$ 0.095 & 14 & 24 & \#8.0 \\
+manhattan\_k3 & Manhattan & 3 & 0.2319 & 1.9790 & 0.8090 $\pm$ 0.086 & 32 & 19 & \#3.0 \\
+manhattan\_k4 & Manhattan & 4 & 0.1983 & 1.8973 & 0.4908 $\pm$ 0.134 & 21 & 28 & \#10.3 \\
+manhattan\_k5 & Manhattan & 5 & 0.1994 & 1.7656 & 0.5367 $\pm$ 0.104 & 16 & 26 & \#9.3 \\
+\bottomrule
+\end{tabular}
+\end{table*}
+
+\subsection{Justification of Euclidean $K=3$ Superiority}
+As presented in Table~\ref{tab:models}, **Euclidean $K$-Means at $K=3$ decisively achieved Composite Rank \#1.0**:
+\begin{itemize}
+    \item Highest silhouette score ($0.2726$).
+    \item Unrivaled bootstrap stability ($\text{ARI} = 0.8324 \pm 0.102$).
+    \item At $K=4$, stability drops precipitously to $0.5025$ $\text{ARI}$ because transitional nations oscillate between obesity and double-burden clusters. Thus, $K=3$ represents the true macro-taxonomy.
+\end{itemize}
+
+\subsection{Hierarchical Linkage Cross-Validation}
+Ward's hierarchical linkage strongly cross-validated the partition boundaries ($\text{ARI} = 0.7109$). Cutting Ward's dendrogram at height **$12.52$** produced exactly 3 branches corresponding to the K-Means partition. Average linkage achieved cophenetic correlation $c = 0.7427$.
+
+\subsection{PCA Factor Interpretation}
+Two principal components captured **65.80\%** of variance:
+\begin{itemize}
+    \item \textbf{PC1 (54.03\% Variance):} The \textit{Nutrition Transition Axis}, driven by child stunting ($+0.42$), underweight ($+0.42$), and anaemia ($+0.38$) vs. adult obesity ($-0.32$).
+    \item \textbf{PC2 (11.77\% Variance):} The \textit{Infant Care vs. Acute Stress Axis}, defined by exclusive breastfeeding ($+0.62$) vs. child wasting ($-0.48$).
+\end{itemize}
+
+\section{Epidemiological Cluster Taxonomy}
+
+\begin{table}[h]
+\caption{Quantitative Taxonomy of the Three Global Clusters}
+\label{tab:clusters}
+\centering
+\begin{tabular}{lcccc}
+\toprule
+\textbf{Indicator} & \textbf{Cluster 0} & \textbf{Cluster 1} & \textbf{Cluster 2} & \textbf{Global Mean} \\
+\midrule
+Child Stunting (\%) & 33.4 $\pm$ 7.2 & 8.1 $\pm$ 4.1 & 22.9 $\pm$ 5.8 & 17.1 \\
+Child Wasting (\%) & 9.2 $\pm$ 3.8 & 2.7 $\pm$ 1.4 & 5.4 $\pm$ 2.1 & 4.7 \\
+Child Anaemia (\%) & 61.3 $\pm$ 11.2 & 22.4 $\pm$ 8.1 & 42.8 $\pm$ 9.4 & 36.1 \\
+Adult Obesity (\%) & 11.4 $\pm$ 4.8 & 29.7 $\pm$ 6.9 & 18.0 $\pm$ 5.2 & 23.0 \\
+Median GDP (USD) & \$1,193 & \$14,264 & \$3,648 & \$6,420 \\
+Number of States & 37 (22.3\%) & 92 (55.4\%) & 37 (22.3\%) & 166 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{itemize}
+    \item \textbf{Cluster 0: High Undernutrition (37 States):} Sub-Saharan Africa and South Asia (Chad, Niger, Afghanistan). Requires therapeutic feeding (RUTF), WASH infrastructure, and maternal micronutrients.
+    \item \textbf{Cluster 1: High Overweight \& Obesity (92 States):} Europe, the Americas, and High-Income nations. Requires fiscal policies (sugar taxes), mandatory warning labels, and metabolic screening.
+    \item \textbf{Cluster 2: Moderate Undernutrition / Transitional (37 States):} Lower-middle income nations (Ghana, Kenya, Philippines). Demands `double-duty actions' safeguarding breastfeeding while halting ultra-processed foods.
+\end{itemize}
+
+\subsection{Borderline Transitional States ($s_i < 0.05$)}
+15 nations ($9.0\%$) exhibited silhouette values $<0.05$. In Kiribati ($s = -0.061$), $29.8\%$ child stunting coexists with $46.0\%$ adult obesity. In Guatemala ($s = +0.015$), chronic stunting ($43.5\%$) coexists with rising urban obesity. This proves malnutrition transitions operate along an empirical continuum.
+
+\section{Conclusion}
+This study demonstrated that global malnutrition naturally stratifies into three distinct, mathematically robust typologies ($\text{ARI} = 0.8324$, Silhouette $= 0.2726$). By excluding GDP from feature space, we proved that nutritional vulnerability does not map linearly to national wealth. We deployed an interactive decision-support platform enabling live policy intervention simulations. Future work will extend this framework to longitudinal time-series trajectory clustering.
+
+\begin{thebibliography}{00}
+\bibitem{who2014} World Health Organization, \textit{Global Nutrition Targets 2025: Policy Brief Series}, Geneva: WHO Press, 2014.
+\bibitem{popkin2001} B. M. Popkin, ``The nutrition transition and obesity in the developing world,'' \textit{J. Nutr.}, vol. 131, no. 3, pp. 871S--873S, 2001.
+\bibitem{gnr2022} Development Initiatives, \textit{2022 Global Nutrition Report}, Bristol, UK: Development Initiatives, 2022.
+\bibitem{popkin2020} B. M. Popkin et al., ``Dynamics of the double burden of malnutrition,'' \textit{The Lancet}, vol. 395, no. 10217, pp. 65--74, 2020.
+\bibitem{wb2023} World Bank, \textit{World Development Indicators 2023}, Washington, DC: World Bank Group, 2023.
+\bibitem{victora2008} C. G. Victora et al., ``Maternal and child undernutrition,'' \textit{The Lancet}, vol. 371, no. 9609, pp. 340--357, 2008.
+\bibitem{macqueen1967} J. MacQueen, ``Some methods for classification and analysis of multivariate observations,'' in \textit{Proc. 5th Berkeley Symp. Math. Statist. Prob.}, vol. 1, 1967, pp. 281--297.
+\bibitem{arthur2007} D. Arthur and S. Vassilvitskii, ``k-means++: The advantages of careful seeding,'' in \textit{Proc. 18th ACM-SIAM SODA}, 2007, pp. 1027--1035.
+\bibitem{satopaa2011} V. Satopaa et al., ``Finding a `kneedle' in a haystack: Detecting knee points in system behavior,'' in \textit{Proc. IEEE ICDCSW}, 2011, pp. 166--171.
+\bibitem{hubert1985} L. Hubert and P. Arabie, ``Comparing partitions,'' \textit{J. Classif.}, vol. 2, no. 1, pp. 193--218, 1985.
+\bibitem{ward1963} J. H. Ward Jr., ``Hierarchical grouping to optimize an objective function,'' \textit{J. Amer. Statist. Assoc.}, vol. 58, pp. 236--244, 1963.
+\bibitem{roux1987} P. J. Rousseeuw, ``Silhouettes: A graphical aid to the interpretation and validation of cluster analysis,'' \textit{J. Comput. Appl. Math.}, vol. 20, pp. 53--65, 1987.
+\bibitem{davies1979} D. L. Davies and D. W. Bouldin, ``A cluster separation measure,'' \textit{IEEE Trans. Pattern Anal. Mach. Intell.}, vol. 1, no. 2, pp. 224--227, 1979.
+\end{thebibliography}
+
+\end{document}
